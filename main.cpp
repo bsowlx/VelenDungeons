@@ -5,6 +5,7 @@
 #include "collision.h"
 #include "enemy.h"
 #include "projectile.h"
+#include "wave.h"
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -84,11 +85,23 @@ int main() {
     float damageCooldown = 0.0f;  // seconds of i-frames remaining
     float fireCooldown   = 0.0f;
 
-    std::vector<Enemy> enemies = {
-        { {14.5f * kCellPx, 3.5f * kCellPx}, bId, kEnemyMaxHp, true },
-        { { 9.5f * kCellPx, 11.5f * kCellPx}, cId, kEnemyMaxHp, true },
-    };
+    std::vector<Enemy> enemies;
     std::vector<Projectile> projectiles;
+
+    // Per-room enemy rosters (parallel to dungeon rooms; will move to PCG output at step 5).
+    std::vector<std::vector<EnemySpawn>> rosters(dungeon.roomCount());
+    rosters[bId] = {
+        { {12.5f * kCellPx,  3.5f * kCellPx} },
+        { {16.5f * kCellPx,  4.5f * kCellPx} },
+    };
+    rosters[cId] = {
+        { { 6.5f * kCellPx, 11.5f * kCellPx} },
+        { {10.5f * kCellPx, 12.5f * kCellPx} },
+        { {13.5f * kCellPx, 11.5f * kCellPx} },
+    };
+
+    WaveState waves;
+    initWaves(waves, dungeon.roomCount(), { aId });  // A is the spawn room — Cleared from start.
 
     UndoStack undoStack;
     int prevActiveRoom = -1;
@@ -119,6 +132,13 @@ int main() {
             int playerTy = (int)(playerPos.y / (float)kCellPx);
             activeRoom = dungeon.roomAt(playerTx, playerTy);
 
+            // First entry into an Untouched room fills the spawn queue and flips
+            // the room to InProgress; re-entries are no-ops (queue resumes in-place).
+            if (activeRoom >= 0 && activeRoom != prevActiveRoom) {
+                onEnterRoom(waves, activeRoom, rosters);
+            }
+
+            updateWaves(waves, enemies, activeRoom, dt);
             updateEnemies(enemies, playerPos, activeRoom, dt, isWalkable, kCellPx);
 
             // Fire on held left-click, rate-limited.
@@ -180,9 +200,11 @@ int main() {
                 }
             }
 
-            // Push on entering a (different) room — corridors are activeRoom == -1
-            // and don't push. At startup this captures the spawn snapshot too.
-            if (!gameOver && activeRoom >= 0 && activeRoom != prevActiveRoom) {
+            // Push only on entering a Cleared room (per spec). Cleared state is
+            // global, so this naturally fires on the spawn frame (A starts Cleared)
+            // and on re-entering rooms you've already cleared.
+            if (!gameOver && activeRoom >= 0 && activeRoom != prevActiveRoom
+                && isCleared(waves, activeRoom)) {
                 undoStack.push({playerPos, activeRoom, playerHp});
             }
             prevActiveRoom = activeRoom;
@@ -219,7 +241,16 @@ int main() {
         EndMode2D();
 
         const char* roomName = (activeRoom >= 0) ? dungeon.room(activeRoom).name.c_str() : "—";
-        DrawText(TextFormat("Room: %s   HP: %d/%d", roomName, playerHp, kPlayerMaxHp),
+        const char* stateName = "—";
+        if (activeRoom >= 0) {
+            switch (stateOf(waves, activeRoom)) {
+                case RoomState::Untouched:  stateName = "untouched";  break;
+                case RoomState::InProgress: stateName = "in-progress"; break;
+                case RoomState::Cleared:    stateName = "cleared";    break;
+            }
+        }
+        DrawText(TextFormat("Room: %s (%s)   HP: %d/%d",
+                            roomName, stateName, playerHp, kPlayerMaxHp),
                  16, 16, 24, kPlayer);
         DrawText(TextFormat("[checkpoints: %d]   U = rewind   LMB = fire",
                             undoStack.size()),
