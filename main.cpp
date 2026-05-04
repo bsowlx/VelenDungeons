@@ -4,6 +4,7 @@
 #include "undo.h"
 #include "collision.h"
 #include "enemy.h"
+#include "projectile.h"
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -74,17 +75,20 @@ int main() {
     constexpr Color kWall       = { 0x2a, 0x26, 0x1e, 0xff };
     constexpr Color kPlayer     = { 0xc8, 0xa8, 0x4b, 0xff };
     constexpr Color kEnemy      = { 0xa0, 0x40, 0x40, 0xff };
+    constexpr Color kProjectile = { 0xff, 0xe6, 0xa0, 0xff };
 
     // Spawn at the center of tile (4, 4) inside room A.
     Vector2 playerPos = { 4.5f * kCellPx, 4.5f * kCellPx };
     int playerHp = kPlayerMaxHp;
     bool gameOver = false;
     float damageCooldown = 0.0f;  // seconds of i-frames remaining
+    float fireCooldown   = 0.0f;
 
     std::vector<Enemy> enemies = {
         { {14.5f * kCellPx, 3.5f * kCellPx}, bId, kEnemyMaxHp, true },
         { { 9.5f * kCellPx, 11.5f * kCellPx}, cId, kEnemyMaxHp, true },
     };
+    std::vector<Projectile> projectiles;
 
     UndoStack undoStack;
     int prevActiveRoom = -1;
@@ -116,6 +120,22 @@ int main() {
             activeRoom = dungeon.roomAt(playerTx, playerTy);
 
             updateEnemies(enemies, playerPos, activeRoom, dt, isWalkable, kCellPx);
+
+            // Fire on held left-click, rate-limited.
+            if (fireCooldown > 0.0f) fireCooldown -= dt;
+            if (fireCooldown <= 0.0f && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+                Vector2 mouseWorld = GetScreenToWorld2D(GetMousePosition(), camera);
+                Vector2 toMouse = Vector2Subtract(mouseWorld, playerPos);
+                if (Vector2Length(toMouse) > 0.001f) {
+                    fireProjectile(projectiles, playerPos, Vector2Normalize(toMouse));
+                    fireCooldown = kFireCooldown;
+                }
+            }
+
+            // Update projectiles after firing so the just-fired one moves this frame.
+            // Runs before contact-damage so an enemy can't deal damage on the same
+            // frame it dies.
+            updateProjectiles(projectiles, enemies, dt, isWalkable, kCellPx);
 
             // Contact damage with i-frames.
             if (damageCooldown > 0.0f) damageCooldown -= dt;
@@ -188,6 +208,11 @@ int main() {
                           (int)kEnemySize, (int)kEnemySize, kEnemy);
         }
 
+        for (const Projectile& p : projectiles) {
+            DrawRectangle((int)(p.pos.x - kProjectileHalf), (int)(p.pos.y - kProjectileHalf),
+                          (int)kProjectileSize, (int)kProjectileSize, kProjectile);
+        }
+
         DrawRectangle((int)(playerPos.x - kPlayerHalf), (int)(playerPos.y - kPlayerHalf),
                       (int)kPlayerSize, (int)kPlayerSize, kPlayer);
 
@@ -196,7 +221,7 @@ int main() {
         const char* roomName = (activeRoom >= 0) ? dungeon.room(activeRoom).name.c_str() : "—";
         DrawText(TextFormat("Room: %s   HP: %d/%d", roomName, playerHp, kPlayerMaxHp),
                  16, 16, 24, kPlayer);
-        DrawText(TextFormat("[checkpoints: %d]   U = rewind",
+        DrawText(TextFormat("[checkpoints: %d]   U = rewind   LMB = fire",
                             undoStack.size()),
                  16, 44, 20, kPlayer);
 
