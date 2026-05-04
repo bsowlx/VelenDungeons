@@ -7,5 +7,5 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(raylib CONFIG REQUIRED)
 
-add_executable(witcher_dungeon main.cpp)
+add_executable(witcher_dungeon main.cpp dungeon.cpp)
 target_link_libraries(witcher_dungeon PRIVATE raylib)
