@@ -2,8 +2,11 @@
 #include "raymath.h"
 #include "dungeon.h"
 #include "undo.h"
+#include "collision.h"
+#include "enemy.h"
 #include <cmath>
 #include <cstdio>
+#include <vector>
 
 int main() {
     constexpr int kCellPx = 32;
@@ -63,44 +66,6 @@ int main() {
         return 1;
     }
 
-    // Axis-separated AABB-vs-tile collision: move on one axis, then if the
-    // player overlaps any solid tile, snap to the offending wall edge. The
-    // scan range is at most 2x2 tiles since the player AABB is < 1 tile wide.
-    auto resolveX = [&](Vector2& pos, float dx) {
-        if (dx == 0.0f) return;
-        pos.x += dx;
-        int minX = (int)std::floor((pos.x - kPlayerHalf) / (float)kCellPx);
-        int maxX = (int)std::floor((pos.x + kPlayerHalf - 0.0001f) / (float)kCellPx);
-        int minY = (int)std::floor((pos.y - kPlayerHalf) / (float)kCellPx);
-        int maxY = (int)std::floor((pos.y + kPlayerHalf - 0.0001f) / (float)kCellPx);
-        if (dx > 0) {
-            for (int tx = minX; tx <= maxX; tx++)
-                for (int ty = minY; ty <= maxY; ty++)
-                    if (!isWalkable(tx, ty)) { pos.x = tx * (float)kCellPx - kPlayerHalf; return; }
-        } else {
-            for (int tx = maxX; tx >= minX; tx--)
-                for (int ty = minY; ty <= maxY; ty++)
-                    if (!isWalkable(tx, ty)) { pos.x = (tx + 1) * (float)kCellPx + kPlayerHalf; return; }
-        }
-    };
-    auto resolveY = [&](Vector2& pos, float dy) {
-        if (dy == 0.0f) return;
-        pos.y += dy;
-        int minX = (int)std::floor((pos.x - kPlayerHalf) / (float)kCellPx);
-        int maxX = (int)std::floor((pos.x + kPlayerHalf - 0.0001f) / (float)kCellPx);
-        int minY = (int)std::floor((pos.y - kPlayerHalf) / (float)kCellPx);
-        int maxY = (int)std::floor((pos.y + kPlayerHalf - 0.0001f) / (float)kCellPx);
-        if (dy > 0) {
-            for (int ty = minY; ty <= maxY; ty++)
-                for (int tx = minX; tx <= maxX; tx++)
-                    if (!isWalkable(tx, ty)) { pos.y = ty * (float)kCellPx - kPlayerHalf; return; }
-        } else {
-            for (int ty = maxY; ty >= minY; ty--)
-                for (int tx = minX; tx <= maxX; tx++)
-                    if (!isWalkable(tx, ty)) { pos.y = (ty + 1) * (float)kCellPx + kPlayerHalf; return; }
-        }
-    };
-
     InitWindow(kWidth, kHeight, "The Witcher Dungeon");
     SetTargetFPS(60);
 
@@ -108,11 +73,18 @@ int main() {
     constexpr Color kFloor      = { 0x1e, 0x1c, 0x14, 0xff };
     constexpr Color kWall       = { 0x2a, 0x26, 0x1e, 0xff };
     constexpr Color kPlayer     = { 0xc8, 0xa8, 0x4b, 0xff };
+    constexpr Color kEnemy      = { 0xa0, 0x40, 0x40, 0xff };
 
     // Spawn at the center of tile (4, 4) inside room A.
     Vector2 playerPos = { 4.5f * kCellPx, 4.5f * kCellPx };
     int playerHp = kPlayerMaxHp;
     bool gameOver = false;
+    float damageCooldown = 0.0f;  // seconds of i-frames remaining
+
+    std::vector<Enemy> enemies = {
+        { {14.5f * kCellPx, 3.5f * kCellPx}, bId, kEnemyMaxHp, true },
+        { { 9.5f * kCellPx, 11.5f * kCellPx}, cId, kEnemyMaxHp, true },
+    };
 
     UndoStack undoStack;
     int prevActiveRoom = -1;
@@ -125,6 +97,7 @@ int main() {
 
     while (!WindowShouldClose()) {
         int activeRoom = -1;
+        float dt = GetFrameTime();
 
         if (!gameOver) {
             Vector2 dir = { 0.0f, 0.0f };
@@ -134,25 +107,43 @@ int main() {
             if (IsKeyDown(KEY_D)) dir.x += 1.0f;
             if (dir.x != 0.0f || dir.y != 0.0f) dir = Vector2Normalize(dir);
 
-            float step = kPlayerSpeed * GetFrameTime();
-            resolveX(playerPos, dir.x * step);
-            resolveY(playerPos, dir.y * step);
+            float step = kPlayerSpeed * dt;
+            resolveX(playerPos, dir.x * step, kPlayerHalf, isWalkable, kCellPx);
+            resolveY(playerPos, dir.y * step, kPlayerHalf, isWalkable, kCellPx);
 
             int playerTx = (int)(playerPos.x / (float)kCellPx);
             int playerTy = (int)(playerPos.y / (float)kCellPx);
             activeRoom = dungeon.roomAt(playerTx, playerTy);
 
-            // Debug damage source — placeholder until enemies exist (step 3b).
-            if (IsKeyPressed(KEY_K)) playerHp--;
+            updateEnemies(enemies, playerPos, activeRoom, dt, isWalkable, kCellPx);
+
+            // Contact damage with i-frames.
+            if (damageCooldown > 0.0f) damageCooldown -= dt;
+            if (damageCooldown <= 0.0f) {
+                Rectangle pr = { playerPos.x - kPlayerHalf, playerPos.y - kPlayerHalf,
+                                 kPlayerSize, kPlayerSize };
+                for (const Enemy& e : enemies) {
+                    if (!e.alive || e.roomId != activeRoom) continue;
+                    Rectangle er = { e.pos.x - kEnemyHalf, e.pos.y - kEnemyHalf,
+                                     kEnemySize, kEnemySize };
+                    if (CheckCollisionRecs(pr, er)) {
+                        playerHp--;
+                        damageCooldown = 0.5f;
+                        break;
+                    }
+                }
+            }
 
             // Debug rewind: pop one snapshot, teleport to it. Suppress the re-push
-            // by syncing prevActiveRoom to the restored room.
+            // by syncing prevActiveRoom to the restored room. Reset cooldown so the
+            // restored player gets a grace window.
             if (IsKeyPressed(KEY_U)) {
                 if (auto snap = undoStack.pop(); snap) {
                     playerPos = snap->playerPos;
                     activeRoom = snap->activeRoom;
                     prevActiveRoom = snap->activeRoom;
                     playerHp = snap->hp;
+                    damageCooldown = 0.5f;
                 }
             }
 
@@ -163,6 +154,7 @@ int main() {
                     activeRoom = snap->activeRoom;
                     prevActiveRoom = snap->activeRoom;
                     playerHp = snap->hp;
+                    damageCooldown = 0.5f;
                 } else {
                     gameOver = true;
                 }
@@ -190,6 +182,12 @@ int main() {
             }
         }
 
+        for (const Enemy& e : enemies) {
+            if (!e.alive) continue;
+            DrawRectangle((int)(e.pos.x - kEnemyHalf), (int)(e.pos.y - kEnemyHalf),
+                          (int)kEnemySize, (int)kEnemySize, kEnemy);
+        }
+
         DrawRectangle((int)(playerPos.x - kPlayerHalf), (int)(playerPos.y - kPlayerHalf),
                       (int)kPlayerSize, (int)kPlayerSize, kPlayer);
 
@@ -198,7 +196,7 @@ int main() {
         const char* roomName = (activeRoom >= 0) ? dungeon.room(activeRoom).name.c_str() : "—";
         DrawText(TextFormat("Room: %s   HP: %d/%d", roomName, playerHp, kPlayerMaxHp),
                  16, 16, 24, kPlayer);
-        DrawText(TextFormat("[checkpoints: %d]   U = rewind   K = damage",
+        DrawText(TextFormat("[checkpoints: %d]   U = rewind",
                             undoStack.size()),
                  16, 44, 20, kPlayer);
 
