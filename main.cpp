@@ -1,6 +1,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "dungeon.h"
+#include "undo.h"
 #include <cmath>
 #include <cstdio>
 
@@ -14,6 +15,7 @@ int main() {
     constexpr float kPlayerSize  = 24.0f;   // px (centered AABB)
     constexpr float kPlayerHalf  = kPlayerSize / 2.0f;
     constexpr float kPlayerSpeed = 160.0f;  // px/sec  =  5 tiles/sec
+    constexpr int   kPlayerMaxHp = 3;
 
     enum class Tile : char { Floor = '.', Wall = '#' };
 
@@ -109,6 +111,11 @@ int main() {
 
     // Spawn at the center of tile (4, 4) inside room A.
     Vector2 playerPos = { 4.5f * kCellPx, 4.5f * kCellPx };
+    int playerHp = kPlayerMaxHp;
+    bool gameOver = false;
+
+    UndoStack undoStack;
+    int prevActiveRoom = -1;
 
     Camera2D camera = { 0 };
     camera.target   = playerPos;
@@ -117,21 +124,59 @@ int main() {
     camera.zoom     = 1.0f;
 
     while (!WindowShouldClose()) {
-        Vector2 dir = { 0.0f, 0.0f };
-        if (IsKeyDown(KEY_W)) dir.y -= 1.0f;
-        if (IsKeyDown(KEY_S)) dir.y += 1.0f;
-        if (IsKeyDown(KEY_A)) dir.x -= 1.0f;
-        if (IsKeyDown(KEY_D)) dir.x += 1.0f;
-        if (dir.x != 0.0f || dir.y != 0.0f) dir = Vector2Normalize(dir);
+        int activeRoom = -1;
 
-        float step = kPlayerSpeed * GetFrameTime();
-        resolveX(playerPos, dir.x * step);
-        resolveY(playerPos, dir.y * step);
+        if (!gameOver) {
+            Vector2 dir = { 0.0f, 0.0f };
+            if (IsKeyDown(KEY_W)) dir.y -= 1.0f;
+            if (IsKeyDown(KEY_S)) dir.y += 1.0f;
+            if (IsKeyDown(KEY_A)) dir.x -= 1.0f;
+            if (IsKeyDown(KEY_D)) dir.x += 1.0f;
+            if (dir.x != 0.0f || dir.y != 0.0f) dir = Vector2Normalize(dir);
+
+            float step = kPlayerSpeed * GetFrameTime();
+            resolveX(playerPos, dir.x * step);
+            resolveY(playerPos, dir.y * step);
+
+            int playerTx = (int)(playerPos.x / (float)kCellPx);
+            int playerTy = (int)(playerPos.y / (float)kCellPx);
+            activeRoom = dungeon.roomAt(playerTx, playerTy);
+
+            // Debug damage source — placeholder until enemies exist (step 3b).
+            if (IsKeyPressed(KEY_K)) playerHp--;
+
+            // Debug rewind: pop one snapshot, teleport to it. Suppress the re-push
+            // by syncing prevActiveRoom to the restored room.
+            if (IsKeyPressed(KEY_U)) {
+                if (auto snap = undoStack.pop(); snap) {
+                    playerPos = snap->playerPos;
+                    activeRoom = snap->activeRoom;
+                    prevActiveRoom = snap->activeRoom;
+                    playerHp = snap->hp;
+                }
+            }
+
+            // Death: auto-pop. Empty stack -> game over.
+            if (playerHp <= 0) {
+                if (auto snap = undoStack.pop(); snap) {
+                    playerPos = snap->playerPos;
+                    activeRoom = snap->activeRoom;
+                    prevActiveRoom = snap->activeRoom;
+                    playerHp = snap->hp;
+                } else {
+                    gameOver = true;
+                }
+            }
+
+            // Push on entering a (different) room — corridors are activeRoom == -1
+            // and don't push. At startup this captures the spawn snapshot too.
+            if (!gameOver && activeRoom >= 0 && activeRoom != prevActiveRoom) {
+                undoStack.push({playerPos, activeRoom, playerHp});
+            }
+            prevActiveRoom = activeRoom;
+        }
 
         camera.target = playerPos;
-        int playerTx = (int)(playerPos.x / (float)kCellPx);
-        int playerTy = (int)(playerPos.y / (float)kCellPx);
-        int activeRoom = dungeon.roomAt(playerTx, playerTy);
 
         BeginDrawing();
         ClearBackground(kBackground);
@@ -151,7 +196,18 @@ int main() {
         EndMode2D();
 
         const char* roomName = (activeRoom >= 0) ? dungeon.room(activeRoom).name.c_str() : "—";
-        DrawText(TextFormat("Room: %s", roomName), 16, 16, 24, kPlayer);
+        DrawText(TextFormat("Room: %s   HP: %d/%d", roomName, playerHp, kPlayerMaxHp),
+                 16, 16, 24, kPlayer);
+        DrawText(TextFormat("[checkpoints: %d]   U = rewind   K = damage",
+                            undoStack.size()),
+                 16, 44, 20, kPlayer);
+
+        if (gameOver) {
+            const char* msg = "GAME OVER";
+            int fs = 64;
+            int tw = MeasureText(msg, fs);
+            DrawText(msg, (kWidth - tw) / 2, kHeight / 2 - fs / 2, fs, RED);
+        }
 
         EndDrawing();
     }
