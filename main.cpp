@@ -6,6 +6,7 @@
 #include "enemy.h"
 #include "projectile.h"
 #include "wave.h"
+#include "inventory.h"
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -103,6 +104,11 @@ int main() {
     WaveState waves;
     initWaves(waves, dungeon.roomCount(), { aId });  // A is the spawn room — Cleared from start.
 
+    Inventory inv;
+    inv.add({"Pistol",   0.20f, 1, 400.0f, 1,  0.0f});
+    inv.add({"Shotgun",  0.55f, 1, 350.0f, 3, 30.0f});
+    inv.add({"Crossbow", 0.45f, 2, 550.0f, 1,  0.0f});
+
     UndoStack undoStack;
     int prevActiveRoom = -1;
 
@@ -141,14 +147,28 @@ int main() {
             updateWaves(waves, enemies, activeRoom, dt);
             updateEnemies(enemies, playerPos, activeRoom, dt, isWalkable, kCellPx);
 
-            // Fire on held left-click, rate-limited.
+            // Cycle weapons.
+            if (IsKeyPressed(KEY_LEFT_BRACKET))  inv.cyclePrev();
+            if (IsKeyPressed(KEY_RIGHT_BRACKET)) inv.cycleNext();
+
+            // Fire on held left-click, rate-limited per current weapon.
             if (fireCooldown > 0.0f) fireCooldown -= dt;
-            if (fireCooldown <= 0.0f && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+            if (fireCooldown <= 0.0f && IsMouseButtonDown(MOUSE_BUTTON_LEFT) && !inv.empty()) {
                 Vector2 mouseWorld = GetScreenToWorld2D(GetMousePosition(), camera);
                 Vector2 toMouse = Vector2Subtract(mouseWorld, playerPos);
                 if (Vector2Length(toMouse) > 0.001f) {
-                    fireProjectile(projectiles, playerPos, Vector2Normalize(toMouse));
-                    fireCooldown = kFireCooldown;
+                    Vector2 baseDir = Vector2Normalize(toMouse);
+                    const Weapon& w = inv.current();
+                    for (int i = 0; i < w.spread; i++) {
+                        float t = (w.spread <= 1) ? 0.0f
+                                                  : (float)i / (float)(w.spread - 1) - 0.5f;
+                        float a = t * w.spreadAngleDeg * (PI / 180.0f);
+                        float c = std::cos(a), s = std::sin(a);
+                        Vector2 dir = { baseDir.x * c - baseDir.y * s,
+                                        baseDir.x * s + baseDir.y * c };
+                        fireProjectile(projectiles, playerPos, dir, w.projectileSpeed, w.damage);
+                    }
+                    fireCooldown = w.cooldown;
                 }
             }
 
@@ -252,8 +272,9 @@ int main() {
         DrawText(TextFormat("Room: %s (%s)   HP: %d/%d",
                             roomName, stateName, playerHp, kPlayerMaxHp),
                  16, 16, 24, kPlayer);
-        DrawText(TextFormat("[checkpoints: %d]   U = rewind   LMB = fire",
-                            undoStack.size()),
+        DrawText(TextFormat("[checkpoints: %d]   Weapon: %s   [/]=cycle  U=rewind  LMB=fire",
+                            undoStack.size(),
+                            inv.empty() ? "—" : inv.current().name.c_str()),
                  16, 44, 20, kPlayer);
 
         if (gameOver) {

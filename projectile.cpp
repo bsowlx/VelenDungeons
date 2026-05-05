@@ -2,11 +2,12 @@
 #include <algorithm>
 #include <cmath>
 
-void fireProjectile(std::vector<Projectile>& projectiles, Vector2 origin, Vector2 dir) {
+void fireProjectile(std::vector<Projectile>& projectiles, Vector2 origin,
+                    Vector2 dir, float speed, int damage) {
     projectiles.push_back({
         origin,
-        { dir.x * kProjectileSpeed, dir.y * kProjectileSpeed },
-        kProjectileDmg,
+        { dir.x * speed, dir.y * speed },
+        damage,
         true,
     });
 }

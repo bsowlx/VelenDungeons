@@ -5,11 +5,8 @@
 #include "enemy.h"
 #include <vector>
 
-constexpr float kProjectileSize  = 8.0f;
-constexpr float kProjectileHalf  = kProjectileSize / 2.0f;
-constexpr float kProjectileSpeed = 400.0f;   // px/sec
-constexpr float kFireCooldown    = 0.20f;    // seconds between shots
-constexpr int   kProjectileDmg   = 1;
+constexpr float kProjectileSize = 8.0f;
+constexpr float kProjectileHalf = kProjectileSize / 2.0f;
 
 struct Projectile {
     Vector2 pos;
@@ -18,7 +15,9 @@ struct Projectile {
     bool alive;
 };
 
-void fireProjectile(std::vector<Projectile>& projectiles, Vector2 origin, Vector2 dir);
+// Speed and damage now come from the firing weapon (see inventory.h).
+void fireProjectile(std::vector<Projectile>& projectiles, Vector2 origin,
+                    Vector2 dir, float speed, int damage);
 
 // Advances each projectile, kills it on a non-walkable tile, kills the enemy
 // (and the projectile) on AABB overlap. Dead projectiles are erased at the end.
