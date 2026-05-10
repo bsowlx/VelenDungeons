@@ -9,21 +9,16 @@
 #include "inventory.h"
 #include "signs.h"
 #include "leaderboard.h"
+#include "grid.h"
+#include "player.h"
+#include "palette.h"
 #include <cmath>
 #include <cstdio>
 #include <vector>
 
 int main() {
-    constexpr int kCellPx = 32;
-    constexpr int kCols   = 20;
-    constexpr int kRows   = 15;
     constexpr int kWidth  = 1280;
     constexpr int kHeight = 720;
-
-    constexpr float kPlayerSize  = 24.0f;
-    constexpr float kPlayerHalf  = kPlayerSize / 2.0f;
-    constexpr float kPlayerSpeed = 160.0f;
-    constexpr int   kPlayerMaxHp = 3;
 
     enum class Tile : char { Floor = '.', Wall = '#' };
 
@@ -80,15 +75,6 @@ int main() {
     InitWindow(kWidth, kHeight, "The Witcher Dungeon");
     SetTargetFPS(60);
     SetExitKey(0);  // Esc is now a normal key — state-machine handles it
-
-    constexpr Color kBackground = { 0x0d, 0x0d, 0x0f, 0xff };
-    constexpr Color kFloor      = { 0x1e, 0x1c, 0x14, 0xff };
-    constexpr Color kWall       = { 0x2a, 0x26, 0x1e, 0xff };
-    constexpr Color kPlayer     = { 0xc8, 0xa8, 0x4b, 0xff };
-    constexpr Color kEnemy      = { 0xa0, 0x40, 0x40, 0xff };
-    constexpr Color kProjectile = { 0xff, 0xe6, 0xa0, 0xff };
-    constexpr Color kMenuDim    = { 0x00, 0x00, 0x00, 0xb0 };
-    constexpr Color kMenuFade   = { 0xc8, 0xa8, 0x4b, 0x80 };
 
     enum class GameState { Title, Playing, Paused, ReadingLetter, GameOver, Leaderboard };
     enum class Difficulty { Easy, Normal, Hard };
