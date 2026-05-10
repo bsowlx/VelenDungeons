@@ -7,6 +7,7 @@
 #include "projectile.h"
 #include "wave.h"
 #include "inventory.h"
+#include "signs.h"
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -110,6 +111,7 @@ int main() {
     WaveState waves;
     Inventory inv;
     UndoStack undoStack;
+    SignState signs;
     int prevActiveRoom;
     int activeRoom;
 
@@ -127,6 +129,7 @@ int main() {
         inv.add({"Shotgun",  0.55f, 1, 350.0f, 3, 30.0f});
         inv.add({"Crossbow", 0.45f, 2, 550.0f, 1,  0.0f});
         undoStack = {};
+        signs = {};
         prevActiveRoom = -1;
         activeRoom = -1;
     };
@@ -178,6 +181,23 @@ int main() {
             case GameState::Playing: {
                 if (IsKeyPressed(KEY_ESCAPE)) { state = GameState::Paused; pauseSel = 0; break; }
                 if (IsKeyPressed(KEY_L))      { state = GameState::ReadingLetter; break; }
+
+                if (IsKeyPressed(KEY_ONE))   signs.aardLevel = 1;
+                if (IsKeyPressed(KEY_TWO))   signs.aardLevel = 2;
+                if (IsKeyPressed(KEY_THREE)) signs.aardLevel = 3;
+
+                if (IsKeyPressed(KEY_Q)) {
+                    Vector2 mw = GetScreenToWorld2D(GetMousePosition(), camera);
+                    Vector2 toMouse = Vector2Subtract(mw, playerPos);
+                    if (Vector2Length(toMouse) > 0.001f) {
+                        Vector2 aim = Vector2Normalize(toMouse);
+                        castAard(signs, enemies, playerPos, aim, activeRoom,
+                                 isWalkable, kCellPx);
+                    }
+                }
+                if (IsKeyPressed(KEY_F)) castQuen(signs);
+
+                tickSigns(signs, dt);
 
                 Vector2 dir = { 0.0f, 0.0f };
                 if (IsKeyDown(KEY_W)) dir.y -= 1.0f;
@@ -235,7 +255,8 @@ int main() {
                         Rectangle er = { e.pos.x - kEnemyHalf, e.pos.y - kEnemyHalf,
                                          kEnemySize, kEnemySize };
                         if (CheckCollisionRecs(pr, er)) {
-                            playerHp--;
+                            if (signs.shieldHp > 0) signs.shieldHp--;
+                            else                    playerHp--;
                             damageCooldown = 0.5f;
                             break;
                         }
@@ -328,8 +349,18 @@ int main() {
 
             for (const Enemy& e : enemies) {
                 if (!e.alive) continue;
+                Color ec = (e.stunTimer > 0.0f) ? Color{0x60, 0x80, 0xc0, 0xff} : kEnemy;
                 DrawRectangle((int)(e.pos.x - kEnemyHalf), (int)(e.pos.y - kEnemyHalf),
-                              (int)kEnemySize, (int)kEnemySize, kEnemy);
+                              (int)kEnemySize, (int)kEnemySize, ec);
+            }
+
+            if (signs.aardCastVis > 0.0f) {
+                float t = signs.aardCastVis / kAardCastVisTime;
+                float aimAng = std::atan2(signs.aardLastDir.y, signs.aardLastDir.x) * (180.0f / PI);
+                Color cc = Fade(kPlayer, 0.4f * t);
+                DrawCircleSector(playerPos, signs.aardLastRange,
+                                 aimAng - kAardHalfAngleDeg, aimAng + kAardHalfAngleDeg,
+                                 16, cc);
             }
 
             for (const Projectile& p : projectiles) {
@@ -339,6 +370,12 @@ int main() {
 
             DrawRectangle((int)(playerPos.x - kPlayerHalf), (int)(playerPos.y - kPlayerHalf),
                           (int)kPlayerSize, (int)kPlayerSize, kPlayer);
+
+            if (signs.shieldHp > 0) {
+                Color rc = Fade(SKYBLUE, 0.7f);
+                DrawRing(playerPos, kPlayerHalf + 4.0f, kPlayerHalf + 8.0f,
+                         0.0f, 360.0f, 24, rc);
+            }
 
             EndMode2D();
 
@@ -358,6 +395,13 @@ int main() {
                                 undoStack.size(),
                                 inv.empty() ? "—" : inv.current().name.c_str()),
                      16, 44, 20, kPlayer);
+            DrawText(TextFormat("Aard L%d  cd %.1fs  |  Quen %d/%d  t %.1fs  cd %.1fs  |  Q=Aard F=Quen 1/2/3=tier",
+                                signs.aardLevel,
+                                signs.aardCd > 0.0f ? signs.aardCd : 0.0f,
+                                signs.shieldHp, kQuenShieldHp,
+                                signs.shieldTimer > 0.0f ? signs.shieldTimer : 0.0f,
+                                signs.quenCd > 0.0f ? signs.quenCd : 0.0f),
+                     16, 68, 18, kPlayer);
         }
 
         switch (state) {

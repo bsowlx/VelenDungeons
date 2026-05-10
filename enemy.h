@@ -14,6 +14,7 @@ struct Enemy {
     int roomId;
     int hp;
     bool alive;
+    float stunTimer = 0.0f;
 };
 
 // An enemy chases only when it shares a room with the player. Steering uses

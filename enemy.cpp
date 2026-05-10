@@ -16,6 +16,7 @@ void updateEnemies(std::vector<Enemy>& enemies,
     for (Enemy& e : enemies) {
         if (!e.alive) continue;
         if (e.roomId != playerActiveRoom) continue;
+        if (e.stunTimer > 0.0f) { e.stunTimer -= dt; continue; }
 
         int enemyTx = (int)(e.pos.x / (float)cellPx);
         int enemyTy = (int)(e.pos.y / (float)cellPx);
