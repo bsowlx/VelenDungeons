@@ -31,7 +31,8 @@ void updateWaves(WaveState& w, std::vector<Enemy>& enemies, int activeRoom, floa
         while (r.spawnTimer <= 0.0f && !r.queue.empty()) {
             EnemySpawn s = r.queue.front();
             r.queue.pop();
-            enemies.push_back({ s.pos, activeRoom, kEnemyMaxHp, true });
+            const EnemyKindData& kd = kEnemyKinds[(int)s.kind];
+            enemies.push_back({ s.pos, activeRoom, kd.maxHp, true, 0.0f, s.kind, 0.0f });
             r.spawnTimer += kSpawnInterval;
         }
     }

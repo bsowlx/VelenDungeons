@@ -23,21 +23,26 @@ int main() {
     enum class Tile : char { Floor = '.', Wall = '#' };
 
     constexpr const char* kMap[kRows] = {
-        "####################",
-        "####################",
-        "##......###.......##",
-        "##...........#.#..##",
-        "##......###.......##",
-        "##......###.......##",
-        "##......######.#####",
-        "#####.########.#####",
-        "#####.########.#####",
-        "#####.########.#####",
-        "#####..........#####",
-        "#####..#....#..#####",
-        "#####....#.....#####",
-        "#####..........#####",
-        "####################",
+        "##############################",
+        "##############################",
+        "##......###.......############",
+        "##...........#.#..############",
+        "##......###.......############",
+        "##......###.......############",
+        "##......######.###############",
+        "#####.########.###############",
+        "#####.########.###############",
+        "#####.########.###############",
+        "#####..........##...........##",
+        "#####..#....#...............##",
+        "#####....#.....##...#...#...##",
+        "#####..........##...........##",
+        "#################.....#.....##",
+        "#################...........##",
+        "#################...#...#...##",
+        "#################...........##",
+        "##############################",
+        "##############################",
     };
 
     auto tileAt = [&](int x, int y) -> Tile {
@@ -52,9 +57,11 @@ int main() {
     int aId = dungeon.addRoom("A", {2, 2, 7, 6});
     int bId = dungeon.addRoom("B", {11, 2, 17, 5});
     int cId = dungeon.addRoom("C", {5, 10, 14, 13});
+    int dId = dungeon.addRoom("D", {17, 10, 27, 17});
     dungeon.addEdge(aId, bId, {11, 3}, {7, 3});
     dungeon.addEdge(aId, cId, {5, 10}, {5, 6});
     dungeon.addEdge(bId, cId, {14, 10}, {14, 5});
+    dungeon.addEdge(cId, dId, {17, 11}, {14, 11});
 
     if (std::string err = dungeon.validate(kMap, kRows, kCols); !err.empty()) {
         std::fprintf(stderr, "Dungeon validation failed: %s\n", err.c_str());
@@ -70,6 +77,18 @@ int main() {
         { { 6.5f * kCellPx, 11.5f * kCellPx} },
         { {10.5f * kCellPx, 12.5f * kCellPx} },
         { {13.5f * kCellPx, 11.5f * kCellPx} },
+    };
+    rosters[dId] = {
+        { {18.5f * kCellPx, 10.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {22.5f * kCellPx, 10.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {18.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {18.5f * kCellPx, 15.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {18.5f * kCellPx, 17.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {26.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {26.5f * kCellPx, 15.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {26.5f * kCellPx, 10.5f * kCellPx}, EnemyKind::Drowner },
+        { {22.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Drowner },
+        { {26.5f * kCellPx, 17.5f * kCellPx}, EnemyKind::Drowner },
     };
 
     InitWindow(kWidth, kHeight, "The Witcher Dungeon");
@@ -211,7 +230,7 @@ int main() {
                 }
 
                 updateWaves(waves, enemies, activeRoom, dt);
-                updateEnemies(enemies, playerPos, activeRoom, dt, isWalkable, kCellPx, kCols, kRows);
+                updateEnemies(enemies, projectiles, playerPos, activeRoom, dt, isWalkable, kCellPx, kCols, kRows);
 
                 if (IsKeyPressed(KEY_LEFT_BRACKET))  inv.cyclePrev();
                 if (IsKeyPressed(KEY_RIGHT_BRACKET)) inv.cycleNext();
@@ -239,9 +258,9 @@ int main() {
                 updateProjectiles(projectiles, enemies, dt, isWalkable, kCellPx, kills);
 
                 if (damageCooldown > 0.0f) damageCooldown -= dt;
+                Rectangle pr = { playerPos.x - kPlayerHalf, playerPos.y - kPlayerHalf,
+                                 kPlayerSize, kPlayerSize };
                 if (damageCooldown <= 0.0f) {
-                    Rectangle pr = { playerPos.x - kPlayerHalf, playerPos.y - kPlayerHalf,
-                                     kPlayerSize, kPlayerSize };
                     for (const Enemy& e : enemies) {
                         if (!e.alive || e.roomId != activeRoom) continue;
                         Rectangle er = { e.pos.x - kEnemyHalf, e.pos.y - kEnemyHalf,
@@ -253,6 +272,21 @@ int main() {
                             break;
                         }
                     }
+                }
+
+                bool projHitThisFrame = false;
+                for (Projectile& p : projectiles) {
+                    if (!p.alive || !p.damagesPlayer) continue;
+                    Rectangle prj = { p.pos.x - kProjectileHalf, p.pos.y - kProjectileHalf,
+                                      kProjectileSize, kProjectileSize };
+                    if (!CheckCollisionRecs(pr, prj)) continue;
+                    if (!projHitThisFrame && damageCooldown <= 0.0f) {
+                        if (signs.shieldHp > 0) signs.shieldHp--;
+                        else                    playerHp -= p.damage;
+                        damageCooldown = 0.5f;
+                        projHitThisFrame = true;
+                    }
+                    p.alive = false;
                 }
 
                 if (IsKeyPressed(KEY_U)) {
@@ -343,7 +377,8 @@ int main() {
 
             for (const Enemy& e : enemies) {
                 if (!e.alive) continue;
-                Color ec = (e.stunTimer > 0.0f) ? Color{0x60, 0x80, 0xc0, 0xff} : kEnemy;
+                Color ec = (e.stunTimer > 0.0f) ? Color{0x60, 0x80, 0xc0, 0xff}
+                                                : kEnemyKinds[(int)e.kind].color;
                 DrawRectangle((int)(e.pos.x - kEnemyHalf), (int)(e.pos.y - kEnemyHalf),
                               (int)kEnemySize, (int)kEnemySize, ec);
             }
@@ -358,8 +393,10 @@ int main() {
             }
 
             for (const Projectile& p : projectiles) {
+                Color pc = p.damagesPlayer ? kEnemyKinds[(int)EnemyKind::Drowner].color
+                                           : kProjectile;
                 DrawRectangle((int)(p.pos.x - kProjectileHalf), (int)(p.pos.y - kProjectileHalf),
-                              (int)kProjectileSize, (int)kProjectileSize, kProjectile);
+                              (int)kProjectileSize, (int)kProjectileSize, pc);
             }
 
             DrawRectangle((int)(playerPos.x - kPlayerHalf), (int)(playerPos.y - kPlayerHalf),

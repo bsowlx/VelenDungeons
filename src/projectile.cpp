@@ -3,12 +3,14 @@
 #include <cmath>
 
 void fireProjectile(std::vector<Projectile>& projectiles, Vector2 origin,
-                    Vector2 dir, float speed, int damage) {
+                    Vector2 dir, float speed, int damage,
+                    bool damagesPlayer) {
     projectiles.push_back({
         origin,
         { dir.x * speed, dir.y * speed },
         damage,
         true,
+        damagesPlayer,
     });
 }
 
@@ -30,6 +32,8 @@ void updateProjectiles(std::vector<Projectile>& projectiles,
             p.alive = false;
             continue;
         }
+
+        if (p.damagesPlayer) continue;
 
         Rectangle pr = { p.pos.x - kProjectileHalf, p.pos.y - kProjectileHalf,
                          kProjectileSize, kProjectileSize };

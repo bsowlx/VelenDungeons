@@ -12,6 +12,7 @@ enum class RoomState { Untouched, InProgress, Cleared };
 
 struct EnemySpawn {
     Vector2 pos;
+    EnemyKind kind = EnemyKind::Ghoul;
 };
 
 // Per-room queue + timer + state. `updateWaves` only drains the queue belonging
