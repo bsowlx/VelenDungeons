@@ -80,15 +80,15 @@ int main() {
     };
     rosters[dId] = {
         { {18.5f * kCellPx, 10.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {22.5f * kCellPx, 10.5f * kCellPx}, EnemyKind::Ghoul   },
         { {18.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Ghoul   },
         { {18.5f * kCellPx, 15.5f * kCellPx}, EnemyKind::Ghoul   },
         { {18.5f * kCellPx, 17.5f * kCellPx}, EnemyKind::Ghoul   },
         { {26.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {26.5f * kCellPx, 15.5f * kCellPx}, EnemyKind::Ghoul   },
         { {26.5f * kCellPx, 10.5f * kCellPx}, EnemyKind::Drowner },
         { {22.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Drowner },
         { {26.5f * kCellPx, 17.5f * kCellPx}, EnemyKind::Drowner },
+        { {22.5f * kCellPx, 15.5f * kCellPx}, EnemyKind::Berserk },
+        { {26.5f * kCellPx, 15.5f * kCellPx}, EnemyKind::Berserk },
     };
 
     InitWindow(kWidth, kHeight, "The Witcher Dungeon");
@@ -266,8 +266,9 @@ int main() {
                         Rectangle er = { e.pos.x - kEnemyHalf, e.pos.y - kEnemyHalf,
                                          kEnemySize, kEnemySize };
                         if (CheckCollisionRecs(pr, er)) {
+                            int dmg = contactDamage(e);
                             if (signs.shieldHp > 0) signs.shieldHp--;
-                            else                    playerHp--;
+                            else                    playerHp -= dmg;
                             damageCooldown = 0.5f;
                             break;
                         }
@@ -381,6 +382,12 @@ int main() {
                                                 : kEnemyKinds[(int)e.kind].color;
                 DrawRectangle((int)(e.pos.x - kEnemyHalf), (int)(e.pos.y - kEnemyHalf),
                               (int)kEnemySize, (int)kEnemySize, ec);
+                if (e.kind == EnemyKind::Berserk && e.phase == BerserkPhase::WindingUp) {
+                    float t = 1.0f - (e.phaseTimer / kBerserkWindupDuration);
+                    Color rc = Fade(RED, 0.4f + 0.4f * t);
+                    DrawRing(e.pos, kEnemyHalf + 4.0f, kEnemyHalf + 10.0f,
+                             0.0f, 360.0f, 24, rc);
+                }
             }
 
             if (signs.aardCastVis > 0.0f) {

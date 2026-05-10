@@ -6,7 +6,7 @@
 
 struct Projectile;  // defined in projectile.h
 
-enum class EnemyKind { Ghoul, Drowner };
+enum class EnemyKind { Ghoul, Drowner, Berserk };
 
 struct EnemyKindData {
     int   maxHp;
@@ -18,6 +18,7 @@ struct EnemyKindData {
 constexpr EnemyKindData kEnemyKinds[] = {
     /* Ghoul   */ { 1, 16.0f, 24.0f, { 0xa0, 0x40, 0x40, 0xff } },
     /* Drowner */ { 2, 12.0f, 24.0f, { 0x6a, 0x8a, 0x40, 0xff } },
+    /* Berserk */ { 4, 12.0f, 24.0f, { 0x60, 0x18, 0x18, 0xff } },
 };
 
 // Ghoul-baseline aliases. Collision sites (signs.cpp, projectile.cpp) use these;
@@ -32,6 +33,17 @@ constexpr float kDrownerFireCooldown = 1.2f;
 constexpr float kDrownerShotSpeed    = 250.0f;
 constexpr int   kDrownerShotDamage   = 1;
 
+constexpr float kBerserkChargeRange    = 320.0f;  // 10 tiles — bull commits from far
+constexpr float kBerserkChargeCooldown = 2.0f;    // chases slowly between charges
+constexpr float kBerserkWindupDuration = 0.8f;
+constexpr float kBerserkStrikeDuration = 3.0f;    // safety cap; wall stops strike in practice
+constexpr float kBerserkSkidDuration   = 0.5f;    // decelerate over ~2 tiles after strike ends
+constexpr float kBerserkRecoveryTime   = 0.7f;
+constexpr float kBerserkStrikeSpeed    = 240.0f;
+constexpr int   kBerserkStrikeDamage   = 2;
+
+enum class BerserkPhase { Chasing, WindingUp, Striking, Skidding, Recovery };
+
 struct Enemy {
     Vector2 pos;
     int roomId;
@@ -40,6 +52,10 @@ struct Enemy {
     float stunTimer = 0.0f;
     EnemyKind kind = EnemyKind::Ghoul;
     float fireCooldown = 0.0f;
+    BerserkPhase phase = BerserkPhase::Chasing;
+    float phaseTimer = 0.0f;
+    Vector2 strikeDir = {0.0f, 0.0f};
+    float chargeCd = 0.0f;
 };
 
 // Dispatches per-kind: ghouls chase via tile-grid A* when sharing a room with
@@ -55,3 +71,7 @@ void updateEnemies(std::vector<Enemy>& enemies,
                    int cols, int rows);
 
 bool applyDamage(Enemy& e, int damage, int& kills);
+
+// Per-enemy contact damage. Berserk mid-Strike hits for kBerserkStrikeDamage;
+// every other case hits for 1.
+int contactDamage(const Enemy& e);

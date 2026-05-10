@@ -79,6 +79,73 @@ static void updateDrowner(Enemy& e, std::vector<Projectile>& projectiles,
     }
 }
 
+static void updateBerserk(Enemy& e, Vector2 playerPos, float dt,
+                          const IsWalkableFn& walkable, int cellPx,
+                          int cols, int rows) {
+    if (e.phaseTimer > 0.0f) e.phaseTimer -= dt;
+
+    Vector2 toPlayer = { playerPos.x - e.pos.x, playerPos.y - e.pos.y };
+    float dist = std::sqrt(toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y);
+
+    switch (e.phase) {
+        case BerserkPhase::Chasing: {
+            if (e.chargeCd > 0.0f) e.chargeCd -= dt;
+            float step = kEnemyKinds[(int)EnemyKind::Berserk].speed * dt;
+            chaseTowards(e, step, playerPos, walkable, cellPx, cols, rows);
+            if (dist <= kBerserkChargeRange && e.chargeCd <= 0.0f
+                && hasLineOfSight(e.pos, playerPos, walkable, cellPx)) {
+                e.phase = BerserkPhase::WindingUp;
+                e.phaseTimer = kBerserkWindupDuration;
+            }
+            break;
+        }
+        case BerserkPhase::WindingUp: {
+            if (e.phaseTimer <= 0.0f) {
+                e.phase = BerserkPhase::Striking;
+                e.phaseTimer = kBerserkStrikeDuration;
+                e.strikeDir = (dist > 0.001f)
+                    ? Vector2{ toPlayer.x / dist, toPlayer.y / dist }
+                    : Vector2{ 1.0f, 0.0f };
+            }
+            break;
+        }
+        case BerserkPhase::Striking: {
+            Vector2 before = e.pos;
+            float step = kBerserkStrikeSpeed * dt;
+            resolveX(e.pos, e.strikeDir.x * step, kEnemyHalf, walkable, cellPx);
+            resolveY(e.pos, e.strikeDir.y * step, kEnemyHalf, walkable, cellPx);
+
+            float dx = e.pos.x - before.x;
+            float dy = e.pos.y - before.y;
+            bool blocked = (dx * dx + dy * dy) < (step * 0.9f) * (step * 0.9f);
+
+            if (blocked || e.phaseTimer <= 0.0f) {
+                e.phase = BerserkPhase::Skidding;
+                e.phaseTimer = kBerserkSkidDuration;
+            }
+            break;
+        }
+        case BerserkPhase::Skidding: {
+            float speedFrac = e.phaseTimer / kBerserkSkidDuration;
+            float step = kBerserkStrikeSpeed * speedFrac * dt;
+            resolveX(e.pos, e.strikeDir.x * step, kEnemyHalf, walkable, cellPx);
+            resolveY(e.pos, e.strikeDir.y * step, kEnemyHalf, walkable, cellPx);
+            if (e.phaseTimer <= 0.0f) {
+                e.phase = BerserkPhase::Recovery;
+                e.phaseTimer = kBerserkRecoveryTime;
+            }
+            break;
+        }
+        case BerserkPhase::Recovery: {
+            if (e.phaseTimer <= 0.0f) {
+                e.phase = BerserkPhase::Chasing;
+                e.chargeCd = kBerserkChargeCooldown;
+            }
+            break;
+        }
+    }
+}
+
 void updateEnemies(std::vector<Enemy>& enemies,
                    std::vector<Projectile>& projectiles,
                    Vector2 playerPos,
@@ -99,8 +166,18 @@ void updateEnemies(std::vector<Enemy>& enemies,
             case EnemyKind::Drowner:
                 updateDrowner(e, projectiles, playerPos, dt, walkable, cellPx, cols, rows);
                 break;
+            case EnemyKind::Berserk:
+                updateBerserk(e, playerPos, dt, walkable, cellPx, cols, rows);
+                break;
         }
     }
+}
+
+int contactDamage(const Enemy& e) {
+    if (e.kind == EnemyKind::Berserk && e.phase == BerserkPhase::Striking) {
+        return kBerserkStrikeDamage;
+    }
+    return 1;
 }
 
 bool applyDamage(Enemy& e, int damage, int& kills) {
