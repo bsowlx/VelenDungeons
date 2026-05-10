@@ -16,7 +16,8 @@ void updateProjectiles(std::vector<Projectile>& projectiles,
                        std::vector<Enemy>& enemies,
                        float dt,
                        const IsWalkableFn& walkable,
-                       int cellPx) {
+                       int cellPx,
+                       int& kills) {
     for (Projectile& p : projectiles) {
         if (!p.alive) continue;
 
@@ -38,7 +39,7 @@ void updateProjectiles(std::vector<Projectile>& projectiles,
                              kEnemySize, kEnemySize };
             if (CheckCollisionRecs(pr, er)) {
                 e.hp -= p.damage;
-                if (e.hp <= 0) e.alive = false;
+                if (e.hp <= 0) { e.alive = false; ++kills; }
                 p.alive = false;
                 break;
             }

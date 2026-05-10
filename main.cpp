@@ -8,6 +8,7 @@
 #include "wave.h"
 #include "inventory.h"
 #include "signs.h"
+#include "leaderboard.h"
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -114,6 +115,7 @@ int main() {
     SignState signs;
     int prevActiveRoom;
     int activeRoom;
+    int kills;
 
     auto initRun = [&]() {
         playerPos = { 4.5f * kCellPx, 4.5f * kCellPx };
@@ -132,6 +134,7 @@ int main() {
         signs = {};
         prevActiveRoom = -1;
         activeRoom = -1;
+        kills = 0;
     };
 
     initRun();
@@ -142,6 +145,9 @@ int main() {
     int pauseSel = 0;     // 0=Resume, 1=Quit to Title
     int gameOverSel = 0;  // 0=Title, 1=Leaderboard
     bool quit = false;
+
+    Leaderboard leaderboard;  // session-scoped, survives initRun
+    int lastScore = 0;
 
     Camera2D camera = { 0 };
     camera.target   = playerPos;
@@ -244,7 +250,7 @@ int main() {
                     }
                 }
 
-                updateProjectiles(projectiles, enemies, dt, isWalkable, kCellPx);
+                updateProjectiles(projectiles, enemies, dt, isWalkable, kCellPx, kills);
 
                 if (damageCooldown > 0.0f) damageCooldown -= dt;
                 if (damageCooldown <= 0.0f) {
@@ -283,6 +289,8 @@ int main() {
                     } else {
                         state = GameState::GameOver;
                         gameOverSel = 0;
+                        lastScore = kills * 100;
+                        leaderboard.submit(lastScore);
                     }
                 }
 
@@ -449,7 +457,8 @@ int main() {
             case GameState::GameOver: {
                 DrawRectangle(0, 0, kWidth, kHeight, kMenuDim);
                 drawCentered("GAME OVER", 180, 72, RED);
-                drawCentered("Score: 0  (placeholder, lands at step 10)", 280, 22, kMenuFade);
+                drawCentered(TextFormat("Kills: %d   Score: %d", kills, lastScore),
+                             280, 26, kPlayer);
                 const char* items[2] = { "Back to Title", "View Leaderboard" };
                 for (int i = 0; i < 2; i++) {
                     Color c = (i == gameOverSel) ? kPlayer : kMenuFade;
@@ -460,7 +469,15 @@ int main() {
 
             case GameState::Leaderboard: {
                 drawCentered("LEADERBOARD", 120, 56, kPlayer);
-                drawCentered("(empty — heap lands at step 10)", 220, 22, kMenuFade);
+                if (leaderboard.empty()) {
+                    drawCentered("(no runs yet — die to submit a score)", 220, 22, kMenuFade);
+                } else {
+                    auto top = leaderboard.top(10);
+                    for (int i = 0; i < (int)top.size(); i++) {
+                        drawCentered(TextFormat("%2d.   %d", i + 1, top[i]),
+                                     220 + i * 36, 24, kPlayer);
+                    }
+                }
                 drawCentered("Esc / Enter to return", 660, 20, kMenuFade);
                 break;
             }

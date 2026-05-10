@@ -21,8 +21,10 @@ void fireProjectile(std::vector<Projectile>& projectiles, Vector2 origin,
 
 // Advances each projectile, kills it on a non-walkable tile, kills the enemy
 // (and the projectile) on AABB overlap. Dead projectiles are erased at the end.
+// `kills` is incremented for each enemy that dies this frame.
 void updateProjectiles(std::vector<Projectile>& projectiles,
                        std::vector<Enemy>& enemies,
                        float dt,
                        const IsWalkableFn& walkable,
-                       int cellPx);
+                       int cellPx,
+                       int& kills);

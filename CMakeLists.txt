@@ -7,5 +7,5 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(raylib CONFIG REQUIRED)
 
-add_executable(witcher_dungeon main.cpp dungeon.cpp undo.cpp collision.cpp enemy.cpp projectile.cpp wave.cpp inventory.cpp pathfind.cpp signs.cpp)
+add_executable(witcher_dungeon main.cpp dungeon.cpp undo.cpp collision.cpp enemy.cpp projectile.cpp wave.cpp inventory.cpp pathfind.cpp signs.cpp leaderboard.cpp)
 target_link_libraries(witcher_dungeon PRIVATE raylib)
