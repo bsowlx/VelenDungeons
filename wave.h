@@ -14,9 +14,9 @@ struct EnemySpawn {
     Vector2 pos;
 };
 
-// Per-room queue + timer + state. The DSA system is the queue (one per room);
-// `updateWaves` only drains the queue belonging to the active room, so leaving
-// a room mid-spawn pauses spawning until you return.
+// Per-room queue + timer + state. `updateWaves` only drains the queue belonging
+// to the active room, so leaving a room mid-spawn pauses spawning until you
+// return.
 struct RoomWaveState {
     std::queue<EnemySpawn> queue;
     float spawnTimer = 0.0f;

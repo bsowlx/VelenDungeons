@@ -34,7 +34,7 @@ int main() {
         "####################",
         "####################",
         "##......###.......##",
-        "##................##",
+        "##...........#.#..##",
         "##......###.......##",
         "##......###.......##",
         "##......######.#####",
@@ -42,8 +42,8 @@ int main() {
         "#####.########.#####",
         "#####.########.#####",
         "#####..........#####",
-        "#####..........#####",
-        "#####..........#####",
+        "#####..#....#..#####",
+        "#####....#.....#####",
         "#####..........#####",
         "####################",
     };
@@ -89,7 +89,7 @@ int main() {
     std::vector<Enemy> enemies;
     std::vector<Projectile> projectiles;
 
-    // Per-room enemy rosters (parallel to dungeon rooms; will move to PCG output at step 5).
+    // Per-room enemy rosters (parallel to dungeon rooms).
     std::vector<std::vector<EnemySpawn>> rosters(dungeon.roomCount());
     rosters[bId] = {
         { {12.5f * kCellPx,  3.5f * kCellPx} },
@@ -145,7 +145,7 @@ int main() {
             }
 
             updateWaves(waves, enemies, activeRoom, dt);
-            updateEnemies(enemies, playerPos, activeRoom, dt, isWalkable, kCellPx);
+            updateEnemies(enemies, playerPos, activeRoom, dt, isWalkable, kCellPx, kCols, kRows);
 
             // Cycle weapons.
             if (IsKeyPressed(KEY_LEFT_BRACKET))  inv.cyclePrev();
@@ -220,8 +220,8 @@ int main() {
                 }
             }
 
-            // Push only on entering a Cleared room (per spec). Cleared state is
-            // global, so this naturally fires on the spawn frame (A starts Cleared)
+            // Push only on entering a Cleared room. Cleared state is global,
+            // so this naturally fires on the spawn frame (A starts Cleared)
             // and on re-entering rooms you've already cleared.
             if (!gameOver && activeRoom >= 0 && activeRoom != prevActiveRoom
                 && isCleared(waves, activeRoom)) {

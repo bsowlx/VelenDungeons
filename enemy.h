@@ -16,11 +16,13 @@ struct Enemy {
     bool alive;
 };
 
-// Activation rule: an enemy chases the player only when it shares a room with
-// them (matches the room-clear gameplay loop and previews spawn waves).
+// An enemy chases only when it shares a room with the player. Steering uses
+// tile-grid A*; falls back to direct chase when the path collapses to one tile
+// or pathfinding fails.
 void updateEnemies(std::vector<Enemy>& enemies,
                    Vector2 playerPos,
                    int playerActiveRoom,
                    float dt,
                    const IsWalkableFn& walkable,
-                   int cellPx);
+                   int cellPx,
+                   int cols, int rows);

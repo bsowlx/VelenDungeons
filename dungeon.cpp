@@ -34,15 +34,9 @@ std::string Dungeon::validate(const char* const* tileMap, int rows, int cols) co
         return "(" + std::to_string(x) + "," + std::to_string(y) + ")";
     };
 
-    for (const Room& r : rooms_) {
-        for (int y = r.bounds.minY; y <= r.bounds.maxY; y++) {
-            for (int x = r.bounds.minX; x <= r.bounds.maxX; x++) {
-                if (!isFloor(x, y)) {
-                    return "room '" + r.name + "' contains non-floor tile at " + coordStr(x, y);
-                }
-            }
-        }
-    }
+    // Note: walls are allowed inside room rects (interior pillars / features).
+    // The integrity checks that matter are: door tiles are floor + inside the
+    // destination room, and DFS connectivity holds.
 
     for (int from = 0; from < (int)adj_.size(); from++) {
         for (const Edge& e : adj_[from]) {
