@@ -42,3 +42,14 @@ void updateEnemies(std::vector<Enemy>& enemies,
         resolveY(e.pos, dir.y * step, kEnemyHalf, walkable, cellPx);
     }
 }
+
+bool applyDamage(Enemy& e, int damage, int& kills) {
+    if (!e.alive) return false;
+    e.hp -= damage;
+    if (e.hp <= 0) {
+        e.alive = false;
+        ++kills;
+        return true;
+    }
+    return false;
+}

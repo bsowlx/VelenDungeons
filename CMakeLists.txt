@@ -7,8 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(raylib CONFIG REQUIRED)
 
-add_executable(witcher_dungeon
-    src/main.cpp
+add_library(witcher_lib STATIC
     src/collision.cpp
     src/dungeon.cpp
     src/enemy.cpp
@@ -20,5 +19,11 @@ add_executable(witcher_dungeon
     src/undo.cpp
     src/wave.cpp
 )
-target_include_directories(witcher_dungeon PRIVATE src)
-target_link_libraries(witcher_dungeon PRIVATE raylib)
+target_include_directories(witcher_lib PUBLIC src)
+target_link_libraries(witcher_lib PUBLIC raylib)
+
+add_executable(witcher_dungeon src/main.cpp)
+target_link_libraries(witcher_dungeon PRIVATE witcher_lib)
+
+add_executable(tests tests/main.cpp)
+target_link_libraries(tests PRIVATE witcher_lib)

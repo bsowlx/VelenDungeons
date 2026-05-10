@@ -27,3 +27,8 @@ void updateEnemies(std::vector<Enemy>& enemies,
                    const IsWalkableFn& walkable,
                    int cellPx,
                    int cols, int rows);
+
+// Single death-site for kill counting. Every kill source routes through this
+// so `kills` stays authoritative. No-op on an already-dead enemy. Returns
+// whether this hit was the lethal one.
+bool applyDamage(Enemy& e, int damage, int& kills);

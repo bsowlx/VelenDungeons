@@ -38,8 +38,7 @@ void updateProjectiles(std::vector<Projectile>& projectiles,
             Rectangle er = { e.pos.x - kEnemyHalf, e.pos.y - kEnemyHalf,
                              kEnemySize, kEnemySize };
             if (CheckCollisionRecs(pr, er)) {
-                e.hp -= p.damage;
-                if (e.hp <= 0) { e.alive = false; ++kills; }
+                applyDamage(e, p.damage, kills);
                 p.alive = false;
                 break;
             }
