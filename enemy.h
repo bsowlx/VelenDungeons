@@ -6,7 +6,7 @@
 
 constexpr float kEnemySize  = 24.0f;
 constexpr float kEnemyHalf  = kEnemySize / 2.0f;
-constexpr float kEnemySpeed = 80.0f;     // px/sec  =  half the player
+constexpr float kEnemySpeed = 16.0f;     // px/sec
 constexpr int   kEnemyMaxHp = 1;
 
 struct Enemy {

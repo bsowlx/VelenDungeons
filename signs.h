@@ -7,7 +7,8 @@
 
 constexpr float kAardCooldown      = 1.5f;
 constexpr float kAardKnockback     = 64.0f;   // px instant displacement on hit
-constexpr float kAardHalfAngleDeg  = 35.0f;
+constexpr int   kAardSubsteps      = 8;       // split push into substeps so the AABB resolver can't tunnel
+constexpr float kAardHalfAngleDeg  = 60.0f;
 constexpr float kAardCastVisTime   = 0.2f;
 constexpr float kAardRangeL1       = 80.0f;
 constexpr float kAardRangeL2       = 140.0f;

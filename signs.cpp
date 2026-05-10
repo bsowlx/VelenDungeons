@@ -22,7 +22,8 @@ void castAard(SignState& s, std::vector<Enemy>& enemies, Vector2 playerPos,
 
     const float range    = s.aardLastRange;
     const float cosHalf  = std::cos(kAardHalfAngleDeg * (PI / 180.0f));
-    const Vector2 disp   = { aimDir.x * kAardKnockback, aimDir.y * kAardKnockback };
+    const Vector2 stepD  = { aimDir.x * kAardKnockback / (float)kAardSubsteps,
+                             aimDir.y * kAardKnockback / (float)kAardSubsteps };
 
     for (Enemy& e : enemies) {
         if (!e.alive)               continue;
@@ -36,8 +37,10 @@ void castAard(SignState& s, std::vector<Enemy>& enemies, Vector2 playerPos,
         float cosAng = aimDir.x * dirE.x + aimDir.y * dirE.y;
         if (cosAng < cosHalf) continue;
 
-        resolveX(e.pos, disp.x, kEnemyHalf, walkable, cellPx);
-        resolveY(e.pos, disp.y, kEnemyHalf, walkable, cellPx);
+        for (int k = 0; k < kAardSubsteps; k++) {
+            resolveX(e.pos, stepD.x, kEnemyHalf, walkable, cellPx);
+            resolveY(e.pos, stepD.y, kEnemyHalf, walkable, cellPx);
+        }
 
         if (s.aardLevel >= 3) {
             e.stunTimer = kAardStunDuration;
