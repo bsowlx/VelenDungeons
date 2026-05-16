@@ -14,6 +14,7 @@ add_library(witcher_lib STATIC
     src/inventory.cpp
     src/leaderboard.cpp
     src/pathfind.cpp
+    src/pcg.cpp
     src/projectile.cpp
     src/signs.cpp
     src/undo.cpp

@@ -9,106 +9,21 @@
 #include "inventory.h"
 #include "signs.h"
 #include "leaderboard.h"
+#include "pcg.h"
 #include "grid.h"
 #include "player.h"
 #include "palette.h"
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <ctime>
+#include <string>
 #include <vector>
 
 int main() {
     constexpr int kWidth  = 1280;
     constexpr int kHeight = 720;
-
-    enum class Tile : char { Floor = '.', Wall = '#' };
-
-    constexpr const char* kMap[kRows] = {
-        "##################################################",
-        "##################################################",
-        "##..............................................##",
-        "##..............................................##",
-        "##..............................................##",
-        "##..............................................##",
-        "##..............................................##",
-        "##....#........#........#........#........#.....##",
-        "##..............................................##",
-        "##..............................................##",
-        "##..............................................##",
-        "##..............................................##",
-        "##..............................................##",
-        "##..............................................##",
-        "##....#........#........#........#........#.....##",
-        "##..............................................##",
-        "##..............................................##",
-        "##..............................................##",
-        "##..............................................##",
-        "##..............................................##",
-        "##..............................................##",
-        "##....#........#........#........#........#.....##",
-        "##..............................................##",
-        "##..............................................##",
-        "##..............................................##",
-        "##..............................................##",
-        "##..............................................##",
-        "##..............................................##",
-        "##################################################",
-        "##################################################",
-    };
-
-    auto tileAt = [&](int x, int y) -> Tile {
-        return static_cast<Tile>(kMap[y][x]);
-    };
-    auto isWalkable = [&](int x, int y) {
-        if (x < 0 || x >= kCols || y < 0 || y >= kRows) return false;
-        return tileAt(x, y) == Tile::Floor;
-    };
-
-    Dungeon dungeon;
-    int arenaId = dungeon.addRoom("Arena", {2, 2, 47, 27});
-
-    if (std::string err = dungeon.validate(kMap, kRows, kCols); !err.empty()) {
-        std::fprintf(stderr, "Dungeon validation failed: %s\n", err.c_str());
-        return 1;
-    }
-
-    std::vector<std::vector<EnemySpawn>> rosters(dungeon.roomCount());
-    rosters[arenaId] = {
-        { {38.5f * kCellPx,  4.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {41.5f * kCellPx,  4.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {44.5f * kCellPx,  4.5f * kCellPx}, EnemyKind::Drowner },
-        { {38.5f * kCellPx,  6.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {44.5f * kCellPx,  6.5f * kCellPx}, EnemyKind::Berserk },
-
-        { { 8.5f * kCellPx, 11.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {12.5f * kCellPx, 11.5f * kCellPx}, EnemyKind::Drowner },
-        { { 8.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {12.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Drowner },
-        { {10.5f * kCellPx, 16.5f * kCellPx}, EnemyKind::Berserk },
-
-        { {38.5f * kCellPx, 11.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {42.5f * kCellPx, 11.5f * kCellPx}, EnemyKind::Drowner },
-        { {38.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {42.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Drowner },
-        { {40.5f * kCellPx, 16.5f * kCellPx}, EnemyKind::Berserk },
-
-        { {20.5f * kCellPx, 17.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {24.5f * kCellPx, 17.5f * kCellPx}, EnemyKind::Drowner },
-        { {28.5f * kCellPx, 17.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {22.5f * kCellPx, 19.5f * kCellPx}, EnemyKind::Berserk },
-        { {26.5f * kCellPx, 19.5f * kCellPx}, EnemyKind::Ghoul   },
-
-        { { 8.5f * kCellPx, 23.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {12.5f * kCellPx, 23.5f * kCellPx}, EnemyKind::Drowner },
-        { { 8.5f * kCellPx, 25.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {12.5f * kCellPx, 25.5f * kCellPx}, EnemyKind::Drowner },
-        { {10.5f * kCellPx, 22.5f * kCellPx}, EnemyKind::Berserk },
-
-        { {38.5f * kCellPx, 23.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {42.5f * kCellPx, 23.5f * kCellPx}, EnemyKind::Drowner },
-        { {38.5f * kCellPx, 25.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {42.5f * kCellPx, 25.5f * kCellPx}, EnemyKind::Drowner },
-        { {40.5f * kCellPx, 22.5f * kCellPx}, EnemyKind::Berserk },
-    };
 
     InitWindow(kWidth, kHeight, "The Witcher Dungeon");
     SetTargetFPS(60);
@@ -126,7 +41,7 @@ int main() {
         return "?";
     };
 
-    // Run state — reset by initRun on Title->Playing and after GameOver.
+    // Run state — reset by initRun on Title->Playing.
     Vector2 playerPos;
     int playerHp;
     float damageCooldown;
@@ -140,28 +55,58 @@ int main() {
     int prevActiveRoom;
     int activeRoom;
     int kills;
+    int currentLevel;
+    std::uint32_t runSeed;
+    LevelData level;
 
-    auto initRun = [&]() {
-        playerPos = { 4.5f * kCellPx, 4.5f * kCellPx };
-        playerHp = kPlayerMaxHp;
-        damageCooldown = 0.0f;
-        fireCooldown = 0.0f;
+    auto loadLevel = [&](int lvl) {
+        level = generateLevel(lvl, runSeed ^ ((std::uint32_t)lvl * 2654435761u));
+
+        std::vector<const char*> rowPtrs;
+        rowPtrs.reserve(level.tileRows.size());
+        for (const std::string& s : level.tileRows) rowPtrs.push_back(s.c_str());
+        if (std::string err = level.dungeon.validate(rowPtrs.data(), kRows, kCols);
+            !err.empty()) {
+            std::fprintf(stderr, "PCG validation failed (lvl %d): %s\n", lvl, err.c_str());
+        }
+
+        playerPos = level.playerSpawn;
         enemies.clear();
         projectiles.clear();
         waves = {};
-        initWaves(waves, dungeon.roomCount(), {});
-        inv = {};
-        inv.add({"Pistol",   0.20f, 1, 400.0f, 1,  0.0f});
-        inv.add({"Shotgun",  0.55f, 1, 350.0f, 3, 30.0f});
-        inv.add({"Crossbow", 0.45f, 2, 550.0f, 1,  0.0f});
+        initWaves(waves, level.dungeon.roomCount(), {});
         undoStack = {};
         signs = {};
         prevActiveRoom = -1;
         activeRoom = -1;
+        damageCooldown = 0.0f;
+        fireCooldown = 0.0f;
+    };
+
+    auto initRun = [&]() {
+        runSeed = (std::uint32_t)std::time(nullptr);
+        currentLevel = 1;
         kills = 0;
+        playerHp = kPlayerMaxHp;
+        inv = {};
+        inv.add({"Pistol",   0.20f, 1, 400.0f, 1,  0.0f});
+        inv.add({"Shotgun",  0.55f, 1, 350.0f, 3, 30.0f});
+        inv.add({"Crossbow", 0.45f, 2, 550.0f, 1,  0.0f});
+        loadLevel(currentLevel);
+    };
+
+    auto nextLevel = [&]() {
+        currentLevel++;
+        playerHp = std::min(playerHp + 1, kPlayerMaxHp);
+        loadLevel(currentLevel);
     };
 
     initRun();
+
+    auto isWalkable = [&](int x, int y) -> bool {
+        if (x < 0 || x >= kCols || y < 0 || y >= kRows) return false;
+        return level.tileRows[y][x] == '.';
+    };
 
     GameState state = GameState::Title;
     Difficulty difficulty = Difficulty::Normal;
@@ -211,6 +156,7 @@ int main() {
             case GameState::Playing: {
                 if (IsKeyPressed(KEY_ESCAPE)) { state = GameState::Paused; pauseSel = 0; break; }
                 if (IsKeyPressed(KEY_L))      { state = GameState::ReadingLetter; break; }
+                if (IsKeyPressed(KEY_N))      { nextLevel(); break; }
 
                 if (IsKeyPressed(KEY_ONE))   signs.aardLevel = 1;
                 if (IsKeyPressed(KEY_TWO))   signs.aardLevel = 2;
@@ -242,10 +188,10 @@ int main() {
 
                 int playerTx = (int)(playerPos.x / (float)kCellPx);
                 int playerTy = (int)(playerPos.y / (float)kCellPx);
-                activeRoom = dungeon.roomAt(playerTx, playerTy);
+                activeRoom = level.dungeon.roomAt(playerTx, playerTy);
 
                 if (activeRoom >= 0 && activeRoom != prevActiveRoom) {
-                    onEnterRoom(waves, activeRoom, rosters);
+                    onEnterRoom(waves, activeRoom, level.rosters);
                 }
 
                 updateWaves(waves, enemies, activeRoom, dt);
@@ -329,7 +275,7 @@ int main() {
                     } else {
                         state = GameState::GameOver;
                         gameOverSel = 0;
-                        lastScore = kills * 100;
+                        lastScore = kills * 100 * currentLevel;
                         leaderboard.submit(lastScore);
                     }
                 }
@@ -389,7 +335,7 @@ int main() {
 
             for (int y = 0; y < kRows; y++) {
                 for (int x = 0; x < kCols; x++) {
-                    Color c = (tileAt(x, y) == Tile::Wall) ? kWall : kFloor;
+                    Color c = (level.tileRows[y][x] == '#') ? kWall : kFloor;
                     DrawRectangle(x * kCellPx + 1, y * kCellPx + 1,
                                   kCellPx - 2, kCellPx - 2, c);
                 }
@@ -436,7 +382,7 @@ int main() {
 
             EndMode2D();
 
-            const char* roomName = (activeRoom >= 0) ? dungeon.room(activeRoom).name.c_str() : "—";
+            const char* roomName = (activeRoom >= 0) ? level.dungeon.room(activeRoom).name.c_str() : "—";
             const char* stateName = "—";
             if (activeRoom >= 0) {
                 switch (stateOf(waves, activeRoom)) {
@@ -445,10 +391,11 @@ int main() {
                     case RoomState::Cleared:    stateName = "cleared";    break;
                 }
             }
-            DrawText(TextFormat("Room: %s (%s)   HP: %d/%d",
-                                roomName, stateName, playerHp, kPlayerMaxHp),
+            DrawText(TextFormat("Level %d   Room: %s (%s)   HP: %d/%d   Kills: %d",
+                                currentLevel, roomName, stateName,
+                                playerHp, kPlayerMaxHp, kills),
                      16, 16, 24, kPlayer);
-            DrawText(TextFormat("[checkpoints: %d]   Weapon: %s   [/]=cycle  U=rewind  L=letter  Esc=pause",
+            DrawText(TextFormat("[checkpoints: %d]   Weapon: %s   [/]=cycle  U=rewind  L=letter  N=next-level  Esc=pause",
                                 undoStack.size(),
                                 inv.empty() ? "—" : inv.current().name.c_str()),
                      16, 44, 20, kPlayer);
