@@ -280,6 +280,24 @@ LevelData generateLevel(int level, std::uint32_t seed) {
     int spawnTy = std::max(rects[0].minY, data.letterTile.y - 1);
     data.playerSpawn = { (spawnTx + 0.5f) * kCellPx, (spawnTy + 0.5f) * kCellPx };
 
+    // Exit tile lives in the last combat room (rects.back()) at the floor tile
+    // farthest (Manhattan) from the corridor entrance. Forces the player to
+    // traverse the room to advance.
+    {
+        const Rect& last = rects.back();
+        TileCoord entrance = corridors.empty() ? roomCenter(last) : corridors.back().first;
+        TileCoord best = entrance;
+        int bestDist = -1;
+        for (int y = last.minY; y <= last.maxY; y++) {
+            for (int x = last.minX; x <= last.maxX; x++) {
+                if (data.tileRows[y][x] != '.') continue;
+                int d = std::abs(x - entrance.x) + std::abs(y - entrance.y);
+                if (d > bestDist) { bestDist = d; best = { x, y }; }
+            }
+        }
+        data.exitTile = best;
+    }
+
     distributeEnemies(data.rosters, rects, spec, data.tileRows, data.playerSpawn, rng);
     return data;
 }

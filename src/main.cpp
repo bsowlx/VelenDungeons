@@ -69,6 +69,8 @@ int main() {
     int activeRoom;
     int kills;
     int currentLevel;
+    int hearts;
+    float exitHintTimer;
     std::uint32_t runSeed;
     LevelData level;
 
@@ -94,6 +96,7 @@ int main() {
         activeRoom = -1;
         damageCooldown = 0.0f;
         fireCooldown = 0.0f;
+        exitHintTimer = 0.0f;
     };
 
     auto initRun = [&]() {
@@ -101,6 +104,7 @@ int main() {
         currentLevel = 1;
         kills = 0;
         playerHp = kPlayerMaxHp;
+        hearts = 3;
         inv = {};
         inv.add({"Pistol",   0.20f, 1, 400.0f, 1,  0.0f});
         inv.add({"Shotgun",  0.55f, 1, 350.0f, 3, 30.0f});
@@ -111,6 +115,7 @@ int main() {
     auto nextLevel = [&]() {
         currentLevel++;
         playerHp = std::min(playerHp + 1, kPlayerMaxHp);
+        hearts = 3;
         loadLevel(currentLevel);
     };
 
@@ -170,12 +175,23 @@ int main() {
                 if (IsKeyPressed(KEY_ESCAPE)) { state = GameState::Paused; pauseSel = 0; break; }
                 if (IsKeyPressed(KEY_N))      { nextLevel(); break; }
 
+                if (exitHintTimer > 0.0f) exitHintTimer -= dt;
+
                 {
                     int tx = (int)(playerPos.x / (float)kCellPx);
                     int ty = (int)(playerPos.y / (float)kCellPx);
                     if (IsKeyPressed(KEY_E) && tx == level.letterTile.x && ty == level.letterTile.y) {
                         state = GameState::ReadingLetter;
                         break;
+                    }
+                    if (IsKeyPressed(KEY_E) && tx == level.exitTile.x && ty == level.exitTile.y) {
+                        int lastRoomId = level.dungeon.roomCount() - 1;
+                        if (stateOf(waves, lastRoomId) == RoomState::Cleared) {
+                            nextLevel();
+                            break;
+                        } else {
+                            exitHintTimer = 1.5f;
+                        }
                     }
                 }
 
@@ -287,17 +303,25 @@ int main() {
                 }
 
                 if (playerHp <= 0) {
-                    if (auto snap = undoStack.pop(); snap) {
+                    hearts--;
+                    if (hearts <= 0) {
+                        state = GameState::GameOver;
+                        gameOverSel = 0;
+                        lastScore = kills * 100 * currentLevel;
+                        leaderboard.submit(lastScore);
+                    } else if (auto snap = undoStack.pop(); snap) {
                         playerPos = snap->playerPos;
                         activeRoom = snap->activeRoom;
                         prevActiveRoom = snap->activeRoom;
                         playerHp = snap->hp;
                         damageCooldown = 0.5f;
                     } else {
-                        state = GameState::GameOver;
-                        gameOverSel = 0;
-                        lastScore = kills * 100 * currentLevel;
-                        leaderboard.submit(lastScore);
+                        // Hearts left but no checkpoint — fall back to antechamber spawn.
+                        playerPos = level.playerSpawn;
+                        activeRoom = -1;
+                        prevActiveRoom = -1;
+                        playerHp = kPlayerMaxHp;
+                        damageCooldown = 0.5f;
                     }
                 }
 
@@ -376,8 +400,12 @@ int main() {
             for (int y = 0; y < kRows; y++) {
                 for (int x = 0; x < kCols; x++) {
                     Color c = (level.tileRows[y][x] == '#') ? kWall : kFloor;
-                    if (x == level.letterTile.x && y == level.letterTile.y && level.tileRows[y][x] == '.') {
-                        c = Fade(kPlayer, 0.4f);  // letter pickup glow
+                    if (level.tileRows[y][x] == '.') {
+                        if (x == level.letterTile.x && y == level.letterTile.y) {
+                            c = Fade(kPlayer, 0.4f);  // letter pickup glow (gold)
+                        } else if (x == level.exitTile.x && y == level.exitTile.y) {
+                            c = Fade(RED, 0.4f);      // level-exit glow (red)
+                        }
                     }
                     DrawRectangle(x * kCellPx + 1, y * kCellPx + 1,
                                   kCellPx - 2, kCellPx - 2, c);
@@ -434,11 +462,15 @@ int main() {
                     case RoomState::Cleared:    stateName = "cleared";    break;
                 }
             }
-            DrawText(TextFormat("Level %d   Room: %s (%s)   HP: %d/%d   Kills: %d",
-                                currentLevel, roomName, stateName,
+            DrawText(TextFormat("Level %d   Hearts: %d/3   Room: %s (%s)   HP: %d/%d   Kills: %d",
+                                currentLevel, hearts, roomName, stateName,
                                 playerHp, kPlayerMaxHp, kills),
                      16, 16, 24, kPlayer);
-            DrawText(TextFormat("[checkpoints: %d]   Weapon: %s   [/]=cycle  U=rewind  E=letter  N=next-level  Esc=pause",
+
+            if (exitHintTimer > 0.0f) {
+                drawCentered("Clear the room first.", kHeight - 80, 24, RED);
+            }
+            DrawText(TextFormat("[checkpoints: %d]   Weapon: %s   [/]=cycle  U=rewind  E=letter/exit  N=debug-next  Esc=pause",
                                 undoStack.size(),
                                 inv.empty() ? "—" : inv.current().name.c_str()),
                      16, 44, 20, kPlayer);
