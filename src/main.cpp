@@ -41,6 +41,19 @@ int main() {
         return "?";
     };
 
+    // Placeholder letter content per level. LLM-generated copy lands later.
+    struct LetterContent { const char* title; const char* line1; const char* line2; };
+    auto letterFor = [](int lvl) -> LetterContent {
+        switch (lvl) {
+            case 1: return {"WITCHER ORDER  —  LEVEL 1", "Bandits raid the lower vaults.", "Drive them out before nightfall."};
+            case 2: return {"WITCHER ORDER  —  LEVEL 2", "The waters grow restless.",       "Drowners crawl from the marsh."};
+            case 3: return {"WITCHER ORDER  —  LEVEL 3", "The fens have turned foul.",      "Ghouls and drowners walk together."};
+            case 4: return {"WITCHER ORDER  —  LEVEL 4", "A berserker warband descends.",   "Beware their charge."};
+            case 5: return {"WITCHER ORDER  —  LEVEL 5", "Only Quen will keep you alive.",  "Use it sparingly."};
+            default:return {"WITCHER ORDER",             "The road grows darker.",          "Press on."};
+        }
+    };
+
     // Run state — reset by initRun on Title->Playing.
     Vector2 playerPos;
     int playerHp;
@@ -74,7 +87,7 @@ int main() {
         enemies.clear();
         projectiles.clear();
         waves = {};
-        initWaves(waves, level.dungeon.roomCount(), {});
+        initWaves(waves, level.dungeon.roomCount(), {0});  // antechamber starts cleared
         undoStack = {};
         signs = {};
         prevActiveRoom = -1;
@@ -155,8 +168,16 @@ int main() {
 
             case GameState::Playing: {
                 if (IsKeyPressed(KEY_ESCAPE)) { state = GameState::Paused; pauseSel = 0; break; }
-                if (IsKeyPressed(KEY_L))      { state = GameState::ReadingLetter; break; }
                 if (IsKeyPressed(KEY_N))      { nextLevel(); break; }
+
+                {
+                    int tx = (int)(playerPos.x / (float)kCellPx);
+                    int ty = (int)(playerPos.y / (float)kCellPx);
+                    if (IsKeyPressed(KEY_E) && tx == level.letterTile.x && ty == level.letterTile.y) {
+                        state = GameState::ReadingLetter;
+                        break;
+                    }
+                }
 
                 if (IsKeyPressed(KEY_ONE))   signs.aardLevel = 1;
                 if (IsKeyPressed(KEY_TWO))   signs.aardLevel = 2;
@@ -301,6 +322,25 @@ int main() {
             case GameState::ReadingLetter: {
                 if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_E) || IsKeyPressed(KEY_ENTER)) {
                     state = GameState::Playing;
+                    break;
+                }
+
+                // World tick (enemies / projectiles / signs / waves) is paused while reading,
+                // but player movement stays live so walking off the letter tile dismisses.
+                Vector2 dir = { 0.0f, 0.0f };
+                if (IsKeyDown(KEY_W)) dir.y -= 1.0f;
+                if (IsKeyDown(KEY_S)) dir.y += 1.0f;
+                if (IsKeyDown(KEY_A)) dir.x -= 1.0f;
+                if (IsKeyDown(KEY_D)) dir.x += 1.0f;
+                if (dir.x != 0.0f || dir.y != 0.0f) dir = Vector2Normalize(dir);
+                float step = kPlayerSpeed * dt;
+                resolveX(playerPos, dir.x * step, kPlayerHalf, isWalkable, kCellPx);
+                resolveY(playerPos, dir.y * step, kPlayerHalf, isWalkable, kCellPx);
+
+                int tx = (int)(playerPos.x / (float)kCellPx);
+                int ty = (int)(playerPos.y / (float)kCellPx);
+                if (tx != level.letterTile.x || ty != level.letterTile.y) {
+                    state = GameState::Playing;
                 }
                 break;
             }
@@ -336,6 +376,9 @@ int main() {
             for (int y = 0; y < kRows; y++) {
                 for (int x = 0; x < kCols; x++) {
                     Color c = (level.tileRows[y][x] == '#') ? kWall : kFloor;
+                    if (x == level.letterTile.x && y == level.letterTile.y && level.tileRows[y][x] == '.') {
+                        c = Fade(kPlayer, 0.4f);  // letter pickup glow
+                    }
                     DrawRectangle(x * kCellPx + 1, y * kCellPx + 1,
                                   kCellPx - 2, kCellPx - 2, c);
                 }
@@ -395,7 +438,7 @@ int main() {
                                 currentLevel, roomName, stateName,
                                 playerHp, kPlayerMaxHp, kills),
                      16, 16, 24, kPlayer);
-            DrawText(TextFormat("[checkpoints: %d]   Weapon: %s   [/]=cycle  U=rewind  L=letter  N=next-level  Esc=pause",
+            DrawText(TextFormat("[checkpoints: %d]   Weapon: %s   [/]=cycle  U=rewind  E=letter  N=next-level  Esc=pause",
                                 undoStack.size(),
                                 inv.empty() ? "—" : inv.current().name.c_str()),
                      16, 44, 20, kPlayer);
@@ -438,15 +481,18 @@ int main() {
             }
 
             case GameState::ReadingLetter: {
-                DrawRectangle(0, 0, kWidth, kHeight, kMenuDim);
-                int boxW = 800, boxH = 400;
-                int boxX = (kWidth - boxW) / 2, boxY = (kHeight - boxH) / 2;
+                // Modal lives at the top so the camera-centered player stays visible
+                // while moving (step-off is a dismiss trigger).
+                int boxW = 900, boxH = 200;
+                int boxX = (kWidth - boxW) / 2, boxY = 24;
                 DrawRectangle(boxX, boxY, boxW, boxH, kBackground);
                 DrawRectangleLines(boxX, boxY, boxW, boxH, kPlayer);
-                drawCentered("WITCHER ORDER  (placeholder)", boxY + 32, 28, kPlayer);
-                drawCentered("Letter contents will be generated by LLM at step 9.", boxY + 120, 20, kMenuFade);
-                drawCentered("This is a stub to exercise the ReadingLetter state.", boxY + 156, 20, kMenuFade);
-                drawCentered("Press E or Esc or Enter to dismiss", boxY + boxH - 56, 18, kMenuFade);
+                LetterContent lc = letterFor(currentLevel);
+                drawCentered(lc.title,  boxY + 28, 28, kPlayer);
+                drawCentered(lc.line1,  boxY + 84, 20, kPlayer);
+                drawCentered(lc.line2,  boxY + 116, 20, kPlayer);
+                drawCentered("Step off the marker, or press E / Esc / Enter, to dismiss",
+                             boxY + boxH - 32, 16, kMenuFade);
                 break;
             }
 

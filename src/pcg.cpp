@@ -15,6 +15,8 @@ constexpr int kMinRoomW       = 11;
 constexpr int kMaxRoomW       = 16;
 constexpr int kMinRoomH       = 8;
 constexpr int kMaxRoomH       = 12;
+constexpr int kAntechamberW   = 8;   // fixed-size starter room with the letter pickup
+constexpr int kAntechamberH   = 6;
 constexpr int kRoomPad        = 2;
 constexpr int kBorder         = 1;
 constexpr int kMaxAttempts    = 200;
@@ -42,8 +44,10 @@ TileCoord roomCenter(const Rect& r) {
     return { (r.minX + r.maxX) / 2, (r.minY + r.maxY) / 2 };
 }
 
+// Packs `n` additional rooms into `out` (does NOT clear — the caller manages
+// the initial state, so an antechamber seeded at index 0 stays put across
+// restart attempts).
 bool packRooms(int n, std::mt19937& rng, std::vector<Rect>& out) {
-    out.clear();
     for (int i = 0; i < n; i++) {
         bool placed = false;
         for (int attempt = 0; attempt < kMaxAttempts && !placed; attempt++) {
@@ -159,9 +163,13 @@ void distributeEnemies(std::vector<std::vector<EnemySpawn>>& rosters,
     int n = (int)rects.size();
     rosters.assign(n, {});
 
+    // Room 0 is the antechamber (no combat). Distribute the LevelSpec totals
+    // round-robin across rooms 1..n-1.
+    int combatRooms = n - 1;
     auto split = [&](int total) {
         std::vector<int> out(n, 0);
-        for (int i = 0; i < total; i++) out[i % n]++;
+        if (combatRooms <= 0) return out;
+        for (int i = 0; i < total; i++) out[1 + (i % combatRooms)]++;
         return out;
     };
     auto ghoulPer   = split(spec.ghouls);
@@ -171,7 +179,7 @@ void distributeEnemies(std::vector<std::vector<EnemySpawn>>& rosters,
     const float kMinSpawnDist = 3.0f * kCellPx;
     const float kMinSpawnDistSq = kMinSpawnDist * kMinSpawnDist;
 
-    for (int i = 0; i < n; i++) {
+    for (int i = 1; i < n; i++) {
         std::vector<TileCoord> used;
         std::uniform_int_distribution<int> dx(rects[i].minX, rects[i].maxX);
         std::uniform_int_distribution<int> dy(rects[i].minY, rects[i].maxY);
@@ -222,13 +230,23 @@ LevelData generateLevel(int level, std::uint32_t seed) {
 
     std::mt19937 rng(seed);
 
+    // Room 0 is always the antechamber (fixed 8x6, letter pickup, no enemies).
+    // Rooms 1..N are combat rooms packed via the normal random rect logic.
     std::vector<Rect> rects;
     bool packed = false;
     for (int r = 0; r < kMaxRestarts && !packed; r++) {
+        rects.clear();
+
+        std::uniform_int_distribution<int> ax(kBorder + 1, kCols - kBorder - 1 - kAntechamberW);
+        std::uniform_int_distribution<int> ay(kBorder + 1, kRows - kBorder - 1 - kAntechamberH);
+        int x = ax(rng);
+        int y = ay(rng);
+        rects.push_back(Rect{ x, y, x + kAntechamberW - 1, y + kAntechamberH - 1 });
+
         packed = packRooms(spec.roomCount, rng, rects);
     }
     if (!packed) {
-        rects = { Rect{ 4, 4, 4 + kMinRoomW - 1, 4 + kMinRoomH - 1 } };
+        rects = { Rect{ 4, 4, 4 + kAntechamberW - 1, 4 + kAntechamberH - 1 } };
     }
 
     data.tileRows.assign(kRows, std::string(kCols, '#'));
@@ -243,17 +261,24 @@ LevelData generateLevel(int level, std::uint32_t seed) {
         allDoors.push_back(cd.doorBtoA);
     }
 
-    for (const Rect& r : rects) scatterPillars(data.tileRows, r, allDoors, rng);
+    // Skip the antechamber (index 0) for pillars — it's meant to be a clean breather room.
+    for (int i = 1; i < (int)rects.size(); i++) {
+        scatterPillars(data.tileRows, rects[i], allDoors, rng);
+    }
 
-    for (int i = 0; i < (int)rects.size(); i++) {
-        data.dungeon.addRoom("R" + std::to_string(i + 1), rects[i]);
+    data.dungeon.addRoom("Antechamber", rects[0]);
+    for (int i = 1; i < (int)rects.size(); i++) {
+        data.dungeon.addRoom("R" + std::to_string(i), rects[i]);
     }
     for (int i = 0; i + 1 < (int)rects.size(); i++) {
         data.dungeon.addEdge(i, i + 1, corridors[i].first, corridors[i].second);
     }
 
-    TileCoord spawn = roomCenter(rects[0]);
-    data.playerSpawn = { (spawn.x + 0.5f) * kCellPx, (spawn.y + 0.5f) * kCellPx };
+    data.letterTile = roomCenter(rects[0]);
+    // Spawn one tile north of the letter so the player has to step onto it to read.
+    int spawnTx = data.letterTile.x;
+    int spawnTy = std::max(rects[0].minY, data.letterTile.y - 1);
+    data.playerSpawn = { (spawnTx + 0.5f) * kCellPx, (spawnTy + 0.5f) * kCellPx };
 
     distributeEnemies(data.rosters, rects, spec, data.tileRows, data.playerSpawn, rng);
     return data;
