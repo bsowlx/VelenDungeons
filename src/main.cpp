@@ -23,26 +23,36 @@ int main() {
     enum class Tile : char { Floor = '.', Wall = '#' };
 
     constexpr const char* kMap[kRows] = {
-        "##############################",
-        "##############################",
-        "##......###.......############",
-        "##...........#.#..############",
-        "##......###.......############",
-        "##......###.......############",
-        "##......######.###############",
-        "#####.########.###############",
-        "#####.########.###############",
-        "#####.########.###############",
-        "#####..........##...........##",
-        "#####..#....#...............##",
-        "#####....#.....##...#...#...##",
-        "#####..........##...........##",
-        "#################.....#.....##",
-        "#################...........##",
-        "#################...#...#...##",
-        "#################...........##",
-        "##############################",
-        "##############################",
+        "##################################################",
+        "##################################################",
+        "##..............................................##",
+        "##..............................................##",
+        "##..............................................##",
+        "##..............................................##",
+        "##..............................................##",
+        "##....#........#........#........#........#.....##",
+        "##..............................................##",
+        "##..............................................##",
+        "##..............................................##",
+        "##..............................................##",
+        "##..............................................##",
+        "##..............................................##",
+        "##....#........#........#........#........#.....##",
+        "##..............................................##",
+        "##..............................................##",
+        "##..............................................##",
+        "##..............................................##",
+        "##..............................................##",
+        "##..............................................##",
+        "##....#........#........#........#........#.....##",
+        "##..............................................##",
+        "##..............................................##",
+        "##..............................................##",
+        "##..............................................##",
+        "##..............................................##",
+        "##..............................................##",
+        "##################################################",
+        "##################################################",
     };
 
     auto tileAt = [&](int x, int y) -> Tile {
@@ -54,14 +64,7 @@ int main() {
     };
 
     Dungeon dungeon;
-    int aId = dungeon.addRoom("A", {2, 2, 7, 6});
-    int bId = dungeon.addRoom("B", {11, 2, 17, 5});
-    int cId = dungeon.addRoom("C", {5, 10, 14, 13});
-    int dId = dungeon.addRoom("D", {17, 10, 27, 17});
-    dungeon.addEdge(aId, bId, {11, 3}, {7, 3});
-    dungeon.addEdge(aId, cId, {5, 10}, {5, 6});
-    dungeon.addEdge(bId, cId, {14, 10}, {14, 5});
-    dungeon.addEdge(cId, dId, {17, 11}, {14, 11});
+    int arenaId = dungeon.addRoom("Arena", {2, 2, 47, 27});
 
     if (std::string err = dungeon.validate(kMap, kRows, kCols); !err.empty()) {
         std::fprintf(stderr, "Dungeon validation failed: %s\n", err.c_str());
@@ -69,26 +72,42 @@ int main() {
     }
 
     std::vector<std::vector<EnemySpawn>> rosters(dungeon.roomCount());
-    rosters[bId] = {
-        { {12.5f * kCellPx,  3.5f * kCellPx} },
-        { {16.5f * kCellPx,  4.5f * kCellPx} },
-    };
-    rosters[cId] = {
-        { { 6.5f * kCellPx, 11.5f * kCellPx} },
-        { {10.5f * kCellPx, 12.5f * kCellPx} },
-        { {13.5f * kCellPx, 11.5f * kCellPx} },
-    };
-    rosters[dId] = {
-        { {18.5f * kCellPx, 10.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {18.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {18.5f * kCellPx, 15.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {18.5f * kCellPx, 17.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {26.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Ghoul   },
-        { {26.5f * kCellPx, 10.5f * kCellPx}, EnemyKind::Drowner },
-        { {22.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Drowner },
-        { {26.5f * kCellPx, 17.5f * kCellPx}, EnemyKind::Drowner },
-        { {22.5f * kCellPx, 15.5f * kCellPx}, EnemyKind::Berserk },
-        { {26.5f * kCellPx, 15.5f * kCellPx}, EnemyKind::Berserk },
+    rosters[arenaId] = {
+        { {38.5f * kCellPx,  4.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {41.5f * kCellPx,  4.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {44.5f * kCellPx,  4.5f * kCellPx}, EnemyKind::Drowner },
+        { {38.5f * kCellPx,  6.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {44.5f * kCellPx,  6.5f * kCellPx}, EnemyKind::Berserk },
+
+        { { 8.5f * kCellPx, 11.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {12.5f * kCellPx, 11.5f * kCellPx}, EnemyKind::Drowner },
+        { { 8.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {12.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Drowner },
+        { {10.5f * kCellPx, 16.5f * kCellPx}, EnemyKind::Berserk },
+
+        { {38.5f * kCellPx, 11.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {42.5f * kCellPx, 11.5f * kCellPx}, EnemyKind::Drowner },
+        { {38.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {42.5f * kCellPx, 13.5f * kCellPx}, EnemyKind::Drowner },
+        { {40.5f * kCellPx, 16.5f * kCellPx}, EnemyKind::Berserk },
+
+        { {20.5f * kCellPx, 17.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {24.5f * kCellPx, 17.5f * kCellPx}, EnemyKind::Drowner },
+        { {28.5f * kCellPx, 17.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {22.5f * kCellPx, 19.5f * kCellPx}, EnemyKind::Berserk },
+        { {26.5f * kCellPx, 19.5f * kCellPx}, EnemyKind::Ghoul   },
+
+        { { 8.5f * kCellPx, 23.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {12.5f * kCellPx, 23.5f * kCellPx}, EnemyKind::Drowner },
+        { { 8.5f * kCellPx, 25.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {12.5f * kCellPx, 25.5f * kCellPx}, EnemyKind::Drowner },
+        { {10.5f * kCellPx, 22.5f * kCellPx}, EnemyKind::Berserk },
+
+        { {38.5f * kCellPx, 23.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {42.5f * kCellPx, 23.5f * kCellPx}, EnemyKind::Drowner },
+        { {38.5f * kCellPx, 25.5f * kCellPx}, EnemyKind::Ghoul   },
+        { {42.5f * kCellPx, 25.5f * kCellPx}, EnemyKind::Drowner },
+        { {40.5f * kCellPx, 22.5f * kCellPx}, EnemyKind::Berserk },
     };
 
     InitWindow(kWidth, kHeight, "The Witcher Dungeon");
@@ -130,7 +149,7 @@ int main() {
         enemies.clear();
         projectiles.clear();
         waves = {};
-        initWaves(waves, dungeon.roomCount(), { aId });
+        initWaves(waves, dungeon.roomCount(), {});
         inv = {};
         inv.add({"Pistol",   0.20f, 1, 400.0f, 1,  0.0f});
         inv.add({"Shotgun",  0.55f, 1, 350.0f, 3, 30.0f});
