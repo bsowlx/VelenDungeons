@@ -1,6 +1,10 @@
 # The Witcher Dungeon
 
-Real-time witcher infitite room clearing game. Built with C++17 and raylib.
+Real-time witcher infinite room clearing dungeon game. Built with C++17 and raylib.
+
+## Demo
+
+https://github.com/user-attachments/assets/168b36c3-2d8d-4ef6-b9e7-dcd4b5eb655f
 
 ## Build
 
@@ -20,10 +24,8 @@ cmake --build build
 
 ## Running it on another machine
 
-The build also drops a `dist/` folder: the exe plus the only two DLLs it can't
-live without (`glfw3.dll`, `libwinpthread-1.dll`). raylib and the C++ runtime are
-linked in statically. Copy `dist/` to a USB and it runs on any Windows 10/11 box
-— no MSYS2, no install, no admin rights. The whole thing is about 3 MB.
+The build drops a `dist/` folder: the exe plus the only two DLLs it can't
+live without (`glfw3.dll`, `libwinpthread-1.dll`). raylib and the C++ runtime are linked in statically. Copy `dist/` to a USB and it runs on any Windows box. The whole thing is about 3 MB.
 
 ## Controls
 
@@ -38,7 +40,7 @@ linked in statically. Copy `dist/` to a USB and it runs on any Windows 10/11 box
 | E         | Interact (read the letter / exit)   |
 | Esc       | Pause                               |
 
-Ranged-only, no melee. Each combat room has a red exit tile in a far corner;
+Each combat room has a red exit tile in a far corner;
 clear the room first, then stand on it and press E.
 
 **Debug keys** (cheats — gone before the demo): `N` skips a level, `U` rewinds to
