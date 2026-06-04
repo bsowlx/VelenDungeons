@@ -16,8 +16,8 @@ struct EnemyKindData {
 };
 
 constexpr EnemyKindData kEnemyKinds[] = {
-    /* Ghoul   */ { 1, 140.0f, 24.0f, { 0xa0, 0x40, 0x40, 0xff } },
-    /* Drowner */ { 2, 140.0f, 24.0f, { 0x6a, 0x8a, 0x40, 0xff } },
+    /* Ghoul   */ { 1,  70.0f, 24.0f, { 0xa0, 0x40, 0x40, 0xff } },
+    /* Drowner */ { 2,  70.0f, 24.0f, { 0x6a, 0x8a, 0x40, 0xff } },
     /* Berserk */ { 4, 140.0f, 24.0f, { 0x60, 0x18, 0x18, 0xff } },
 };
 

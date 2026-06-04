@@ -41,7 +41,7 @@ int main() {
         return "?";
     };
 
-    // Placeholder letter content per level. LLM-generated copy lands later.
+    // Per-level letter content.
     struct LetterContent { const char* title; const char* line1; const char* line2; };
     auto letterFor = [](int lvl) -> LetterContent {
         switch (lvl) {
@@ -486,7 +486,7 @@ int main() {
         switch (state) {
             case GameState::Title: {
                 drawCentered("THE WITCHER DUNGEON", 120, 56, kPlayer);
-                drawCentered("a DSA dungeon crawl", 184, 22, kMenuFade);
+                drawCentered("a real-time dungeon crawl", 184, 22, kMenuFade);
 
                 const char* items[4] = { "Start", "Leaderboard", "Difficulty", "Quit" };
                 for (int i = 0; i < 4; i++) {

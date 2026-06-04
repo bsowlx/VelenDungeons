@@ -28,7 +28,7 @@ struct Room {
 
 // Edge.door = first tile inside the destination room along the corridor.
 // Stepping onto that tile means "arrived in destination" — used to fire
-// room-transition events (future: spawn waves).
+// room-transition events such as spawn waves.
 struct Edge {
     int to;
     TileCoord door;
