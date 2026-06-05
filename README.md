@@ -1,4 +1,4 @@
-# The Witcher Dungeon
+# VelenDungeons
 
 Real-time witcher infinite room clearing dungeon game. Built with C++17 and raylib.
 
@@ -42,9 +42,6 @@ live without (`glfw3.dll`, `libwinpthread-1.dll`). raylib and the C++ runtime ar
 
 Each combat room has a red exit tile in a far corner;
 clear the room first, then stand on it and press E.
-
-**Debug keys**: `N` skips a level, `U` rewinds to
-the last checkpoint, `1`/`2`/`3` force the Aard tier.
 
 ## Tests
 
