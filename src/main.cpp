@@ -92,6 +92,7 @@ int main() {
         initWaves(waves, level.dungeon.roomCount(), {0});  // antechamber starts cleared
         undoStack = {};
         signs = {};
+        signs.aardLevel = lvl < 3 ? 1 : (lvl == 3 ? 2 : 3);  // Aard cone upgrades with depth
         prevActiveRoom = -1;
         activeRoom = -1;
         damageCooldown = 0.0f;
@@ -173,7 +174,6 @@ int main() {
 
             case GameState::Playing: {
                 if (IsKeyPressed(KEY_ESCAPE)) { state = GameState::Paused; pauseSel = 0; break; }
-                if (IsKeyPressed(KEY_N))      { nextLevel(); break; }
 
                 if (exitHintTimer > 0.0f) exitHintTimer -= dt;
 
@@ -194,10 +194,6 @@ int main() {
                         }
                     }
                 }
-
-                if (IsKeyPressed(KEY_ONE))   signs.aardLevel = 1;
-                if (IsKeyPressed(KEY_TWO))   signs.aardLevel = 2;
-                if (IsKeyPressed(KEY_THREE)) signs.aardLevel = 3;
 
                 if (IsKeyPressed(KEY_Q)) {
                     Vector2 mw = GetScreenToWorld2D(GetMousePosition(), camera);
@@ -290,16 +286,6 @@ int main() {
                         projHitThisFrame = true;
                     }
                     p.alive = false;
-                }
-
-                if (IsKeyPressed(KEY_U)) {
-                    if (auto snap = undoStack.pop(); snap) {
-                        playerPos = snap->playerPos;
-                        activeRoom = snap->activeRoom;
-                        prevActiveRoom = snap->activeRoom;
-                        playerHp = snap->hp;
-                        damageCooldown = 0.5f;
-                    }
                 }
 
                 if (playerHp <= 0) {

@@ -5,10 +5,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Link raylib statically so the game ships without MSYS2 or raylib installed
-# (see the dist/ bundle below). Must be set before find_package; it makes
-# raylib-config.cmake pick libraylib.a over the shared import lib.
-set(raylib_USE_STATIC_LIBS ON)
+# On Windows, link raylib statically so the game ships without MSYS2 or raylib
+# installed (see the dist/ bundle below). Must be set before find_package. On
+# Linux/macOS we build against the system raylib, so this stays off.
+if(WIN32)
+    set(raylib_USE_STATIC_LIBS ON)
+endif()
 find_package(raylib CONFIG REQUIRED)
 
 add_library(witcher_lib STATIC
@@ -33,9 +35,11 @@ endif()
 
 add_executable(witcher_dungeon src/main.cpp)
 target_link_libraries(witcher_dungeon PRIVATE witcher_lib)
-# Bake the C++/gcc runtimes into the exe. raylib links statically; GLFW stays a
-# DLL (MSYS2's libraylib.a calls it via dllimport) so glfw3.dll ships alongside.
-target_link_options(witcher_dungeon PRIVATE -static-libgcc -static-libstdc++)
+# On Windows, bake the C++/gcc runtimes into the exe so no MSYS2 DLLs are needed
+# at runtime. (GLFW stays a DLL — MSYS2's libraylib.a calls it via dllimport.)
+if(WIN32)
+    target_link_options(witcher_dungeon PRIVATE -static-libgcc -static-libstdc++)
+endif()
 
 add_executable(tests tests/main.cpp)
 target_link_libraries(tests PRIVATE witcher_lib)
