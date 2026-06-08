@@ -136,6 +136,9 @@ int main() {
 
     Leaderboard leaderboard;  // session-scoped, survives initRun
     int lastScore = 0;
+    constexpr int kMaxNameLen = 10;
+    std::string nameEntry;        // typed on the GameOver screen
+    bool scoreSubmitted = false;  // gates the one push per game over
 
     Camera2D camera = { 0 };
     camera.target   = playerPos;
@@ -294,7 +297,8 @@ int main() {
                         state = GameState::GameOver;
                         gameOverSel = 0;
                         lastScore = kills * 100 * currentLevel;
-                        leaderboard.submit(lastScore);
+                        nameEntry.clear();
+                        scoreSubmitted = false;
                     } else if (auto snap = undoStack.pop(); snap) {
                         playerPos = snap->playerPos;
                         activeRoom = snap->activeRoom;
@@ -356,11 +360,26 @@ int main() {
             }
 
             case GameState::GameOver: {
-                if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_DOWN)) gameOverSel = cycleSel(gameOverSel, +1, 2);
-                if (IsKeyPressed(KEY_ESCAPE)) state = GameState::Title;
-                if (IsKeyPressed(KEY_ENTER)) {
-                    if (gameOverSel == 0) state = GameState::Title;
-                    else state = GameState::Leaderboard;
+                if (!scoreSubmitted) {
+                    // Typing the run name: lowercase letters only, kept short.
+                    for (int c = GetCharPressed(); c > 0; c = GetCharPressed()) {
+                        if (c >= 'A' && c <= 'Z') c += 32;
+                        if (c >= 'a' && c <= 'z' && (int)nameEntry.size() < kMaxNameLen)
+                            nameEntry += (char)c;
+                    }
+                    if (IsKeyPressed(KEY_BACKSPACE) && !nameEntry.empty()) nameEntry.pop_back();
+                    if (IsKeyPressed(KEY_ENTER)) {
+                        std::string name = nameEntry.empty() ? "nameless" : nameEntry;
+                        leaderboard.submit({name, lastScore, currentLevel, kills});
+                        scoreSubmitted = true;
+                    }
+                } else {
+                    if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_DOWN)) gameOverSel = cycleSel(gameOverSel, +1, 2);
+                    if (IsKeyPressed(KEY_ESCAPE)) state = GameState::Title;
+                    if (IsKeyPressed(KEY_ENTER)) {
+                        if (gameOverSel == 0) state = GameState::Title;
+                        else state = GameState::Leaderboard;
+                    }
                 }
                 break;
             }
@@ -519,10 +538,18 @@ int main() {
                 drawCentered("GAME OVER", 180, 72, RED);
                 drawCentered(TextFormat("Kills: %d   Score: %d", kills, lastScore),
                              280, 26, kPlayer);
-                const char* items[2] = { "Back to Title", "View Leaderboard" };
-                for (int i = 0; i < 2; i++) {
-                    Color c = (i == gameOverSel) ? kPlayer : kMenuFade;
-                    drawCentered(items[i], 400 + i * 56, 32, c);
+                if (!scoreSubmitted) {
+                    drawCentered("What is your name, Witcher?", 360, 26, kPlayer);
+                    bool blink = ((int)(GetTime() * 2.0)) % 2 == 0;
+                    drawCentered(TextFormat("%s%s", nameEntry.c_str(), blink ? "_" : " "),
+                                 410, 32, kPlayer);
+                    drawCentered("type a-z, Enter to confirm", 466, 18, kMenuFade);
+                } else {
+                    const char* items[2] = { "Back to Title", "View Leaderboard" };
+                    for (int i = 0; i < 2; i++) {
+                        Color c = (i == gameOverSel) ? kPlayer : kMenuFade;
+                        drawCentered(items[i], 400 + i * 56, 32, c);
+                    }
                 }
                 break;
             }
@@ -534,8 +561,10 @@ int main() {
                 } else {
                     auto top = leaderboard.top(10);
                     for (int i = 0; i < (int)top.size(); i++) {
-                        drawCentered(TextFormat("%2d.   %d", i + 1, top[i]),
-                                     220 + i * 36, 24, kPlayer);
+                        const auto& r = top[i];
+                        drawCentered(TextFormat("%2d.  %-10s  %6d   floor %d   %d kills",
+                                                i + 1, r.name.c_str(), r.score, r.floor, r.kills),
+                                     220 + i * 36, 22, kPlayer);
                     }
                 }
                 drawCentered("Esc / Enter to return", 660, 20, kMenuFade);

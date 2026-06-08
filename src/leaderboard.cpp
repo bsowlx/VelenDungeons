@@ -1,12 +1,12 @@
 #include "leaderboard.h"
 
-void Leaderboard::submit(int score) {
-    heap_.push(score);
+void Leaderboard::submit(const RunRecord& run) {
+    heap_.push(run);
 }
 
-std::vector<int> Leaderboard::top(int n) const {
+std::vector<RunRecord> Leaderboard::top(int n) const {
     auto copy = heap_;
-    std::vector<int> out;
+    std::vector<RunRecord> out;
     while (!copy.empty() && (int)out.size() < n) {
         out.push_back(copy.top());
         copy.pop();

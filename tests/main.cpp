@@ -72,23 +72,25 @@ static void run_leaderboard_tests() {
     EXPECT(lb.empty());
     EXPECT(lb.top(5).empty());
 
-    lb.submit(100);
+    lb.submit({"geralt", 100, 1, 1});
     EXPECT(!lb.empty());
     EXPECT(lb.size() == 1);
     auto t = lb.top(5);
     EXPECT(t.size() == 1);
-    EXPECT(t[0] == 100);
+    EXPECT(t[0].score == 100);
+    EXPECT(t[0].name == "geralt");
 
-    lb.submit(300);
-    lb.submit(200);
-    lb.submit(500);
-    lb.submit(400);
+    lb.submit({"yen", 300, 2, 3});
+    lb.submit({"triss", 200, 1, 2});
+    lb.submit({"ciri", 500, 3, 5});
+    lb.submit({"vesemir", 400, 2, 4});
 
     t = lb.top(3);
     EXPECT(t.size() == 3);
-    EXPECT(t[0] == 500);
-    EXPECT(t[1] == 400);
-    EXPECT(t[2] == 300);
+    EXPECT(t[0].score == 500);
+    EXPECT(t[0].name == "ciri");
+    EXPECT(t[1].score == 400);
+    EXPECT(t[2].score == 300);
 
     auto all = lb.top(100);
     EXPECT(all.size() == 5);
