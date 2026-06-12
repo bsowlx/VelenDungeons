@@ -154,7 +154,7 @@ int main() {
         int tw = MeasureText(msg, fs);
         DrawText(msg, (kWidth - tw) / 2, y, fs, c);
     };
-
+//global game state management
     while (!WindowShouldClose() && !quit) {
         float dt = GetFrameTime();
 
@@ -290,7 +290,7 @@ int main() {
                     }
                     p.alive = false;
                 }
-
+//if player dies, it submits the score calculated by this
                 if (playerHp <= 0) {
                     hearts--;
                     if (hearts <= 0) {
@@ -314,7 +314,7 @@ int main() {
                         damageCooldown = 0.5f;
                     }
                 }
-
+// if the room is cleared, then push the stapshot into the stack
                 if (state == GameState::Playing && activeRoom >= 0 && activeRoom != prevActiveRoom
                     && isCleared(waves, activeRoom)) {
                     undoStack.push({playerPos, activeRoom, playerHp});
@@ -367,6 +367,7 @@ int main() {
                         if (c >= 'a' && c <= 'z' && (int)nameEntry.size() < kMaxNameLen)
                             nameEntry += (char)c;
                     }
+//score is submitted 
                     if (IsKeyPressed(KEY_BACKSPACE) && !nameEntry.empty()) nameEntry.pop_back();
                     if (IsKeyPressed(KEY_ENTER)) {
                         std::string name = nameEntry.empty() ? "nameless" : nameEntry;

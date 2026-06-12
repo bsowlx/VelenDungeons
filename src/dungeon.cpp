@@ -50,7 +50,7 @@ std::string Dungeon::validate(const char* const* tileMap, int rows, int cols) co
             }
         }
     }
-
+    //DFS for room connectivity 
     if (rooms_.empty()) return "";
     std::vector<bool> visited(rooms_.size(), false);
     std::vector<int> stack;
